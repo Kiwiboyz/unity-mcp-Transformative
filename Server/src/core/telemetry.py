@@ -24,7 +24,10 @@ from typing import Any
 from urllib.parse import urlparse
 import uuid
 
-import tomli
+try:
+    import tomllib as tomli
+except ImportError:  # Python 3.10 compatibility
+    import tomli
 
 try:
     import httpx
@@ -142,8 +145,8 @@ class TelemetryConfig:
                 continue
 
         # Determine enabled flag: config -> env DISABLE_* opt-out
-        cfg_enabled = True if server_config is None else bool(
-            getattr(server_config, "telemetry_enabled", True))
+        cfg_enabled = False if server_config is None else bool(
+            getattr(server_config, "telemetry_enabled", False))
         self.enabled = cfg_enabled and not self._is_disabled()
 
         # Telemetry endpoint (Cloud Run default; override via env)
@@ -165,7 +168,7 @@ class TelemetryConfig:
             pass
 
         # Local storage for UUID and milestones
-        self.data_dir = self._get_data_directory()
+        self.data_dir = self._get_data_directory(create=self.enabled)
         self.uuid_file = self.data_dir / "customer_uuid.txt"
         self.milestones_file = self.data_dir / "milestones.json"
 
@@ -196,7 +199,7 @@ class TelemetryConfig:
                 return True
         return False
 
-    def _get_data_directory(self) -> Path:
+    def _get_data_directory(self, create: bool = True) -> Path:
         """Get directory for storing telemetry data"""
         if os.name == 'nt':  # Windows
             base_dir = Path(os.environ.get(
@@ -211,7 +214,8 @@ class TelemetryConfig:
             base_dir = Path.home() / '.unity-mcp'
 
         data_dir = base_dir / 'UnityMCP'
-        data_dir.mkdir(parents=True, exist_ok=True)
+        if create:
+            data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
     def _validated_endpoint(self, candidate: str, fallback: str) -> str:
@@ -250,11 +254,13 @@ class TelemetryCollector:
         # Bounded queue with single background worker (records only; no context propagation)
         self._queue: "queue.Queue[TelemetryRecord]" = queue.Queue(maxsize=1000)
         self._shutdown: bool = False
-        # Load persistent data before starting worker so first events have UUID
-        self._load_persistent_data()
-        self._worker: threading.Thread = threading.Thread(
-            target=self._worker_loop, daemon=True)
-        self._worker.start()
+        self._worker: threading.Thread | None = None
+        # Disabled telemetry must not create a durable identifier, a data directory,
+        # or a background sender. Opt-in configuration starts those components.
+        if self.config.enabled:
+            self._load_persistent_data()
+            self._worker = threading.Thread(target=self._worker_loop, daemon=True)
+            self._worker.start()
 
     def _load_persistent_data(self):
         """Load UUID and milestones from disk"""
@@ -494,7 +500,7 @@ def record_tool_usage(tool_name: str, success: bool, duration_ms: float, error: 
             data["sub_action"] = "unknown"
 
     if error:
-        data["error"] = str(error)[:200]  # Limit error message length
+        data["error"] = "operation_failed"
 
     record_telemetry(RecordType.TOOL_EXECUTION, data)
 
@@ -515,7 +521,7 @@ def record_resource_usage(resource_name: str, success: bool, duration_ms: float,
     }
 
     if error:
-        data["error"] = str(error)[:200]  # Limit error message length
+        data["error"] = "operation_failed"
 
     record_telemetry(RecordType.RESOURCE_RETRIEVAL, data)
 
@@ -537,7 +543,7 @@ def record_failure(component: str, error: str, metadata: dict[str, Any] | None =
     """Record failure telemetry"""
     data = {
         "component": component,
-        "error": str(error)[:500]  # Limit error message length
+        "error": "operation_failed"
     }
 
     if metadata:

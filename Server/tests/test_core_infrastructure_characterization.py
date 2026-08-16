@@ -100,7 +100,7 @@ class TestLoggingDecoratorBasics:
     """Tests for log_execution decorator basic behavior."""
 
     def test_decorator_logs_function_call_sync(self, caplog_fixture):
-        """Verify decorator logs function entry with arguments (sync)."""
+        """Verify decorator logs metadata only (sync)."""
         caplog_fixture.clear()
 
         @log_execution("test_func", "TestType")
@@ -110,13 +110,12 @@ class TestLoggingDecoratorBasics:
         result = sync_function(1, 2)
 
         assert result == 3
-        # Should log entry with arguments
-        assert "TestType 'test_func' called with args=(1, 2) kwargs={}" in caplog_fixture.text
-        # Should log return value
-        assert "TestType 'test_func' returned: 3" in caplog_fixture.text
+        assert "TestType 'test_func' started" in caplog_fixture.text
+        assert "TestType 'test_func' completed" in caplog_fixture.text
+        assert "args=" not in caplog_fixture.text
 
     def test_decorator_logs_function_call_async(self, caplog_fixture):
-        """Verify decorator logs function entry with arguments (async)."""
+        """Verify decorator logs metadata only (async)."""
         caplog_fixture.clear()
 
         @log_execution("async_func", "AsyncType")
@@ -126,13 +125,11 @@ class TestLoggingDecoratorBasics:
         result = asyncio.run(async_function(10, 20))
 
         assert result == 30
-        # Should log entry with arguments
-        assert "AsyncType 'async_func' called with args=(10, 20) kwargs={}" in caplog_fixture.text
-        # Should log return value
-        assert "AsyncType 'async_func' returned: 30" in caplog_fixture.text
+        assert "AsyncType 'async_func' started" in caplog_fixture.text
+        assert "AsyncType 'async_func' completed" in caplog_fixture.text
 
-    def test_decorator_logs_kwargs(self, caplog_fixture):
-        """Verify decorator logs keyword arguments."""
+    def test_decorator_does_not_log_kwargs(self, caplog_fixture):
+        """Verify decorator does not log keyword arguments."""
         caplog_fixture.clear()
 
         @log_execution("kwarg_func", "KwargType")
@@ -142,9 +139,8 @@ class TestLoggingDecoratorBasics:
         result = func_with_kwargs(1, b=2, c=3)
 
         assert result == (1, 2, 3)
-        # kwargs are logged in dict format {'b': 2, 'c': 3}
-        assert "'b': 2" in caplog_fixture.text
-        assert "'c': 3" in caplog_fixture.text
+        assert "'b': 2" not in caplog_fixture.text
+        assert "'c': 3" not in caplog_fixture.text
 
     def test_decorator_logs_exception(self, caplog_fixture):
         """Verify decorator logs exceptions and re-raises them."""
@@ -157,8 +153,8 @@ class TestLoggingDecoratorBasics:
         with pytest.raises(ValueError, match="Test error"):
             func_that_raises()
 
-        # Should log the failure
-        assert "ErrorType 'error_func' failed: Test error" in caplog_fixture.text
+        assert "ErrorType 'error_func' failed (ValueError)" in caplog_fixture.text
+        assert "Test error" not in caplog_fixture.text
 
     def test_decorator_preserves_function_metadata(self):
         """Verify @functools.wraps preserves original function metadata."""
@@ -213,8 +209,8 @@ class TestLoggingDecoratorExceptionHandling:
         with pytest.raises(RuntimeError, match="Async original error"):
             asyncio.run(async_failing_func())
 
-    def test_decorator_logs_exception_message(self, caplog_fixture):
-        """Verify decorator logs the exception message string."""
+    def test_decorator_does_not_log_exception_message(self, caplog_fixture):
+        """Verify decorator redacts exception message strings."""
         caplog_fixture.clear()
 
         @log_execution("exc_msg", "ExcMsg")
@@ -224,7 +220,8 @@ class TestLoggingDecoratorExceptionHandling:
         with pytest.raises(ValueError):
             func_with_message()
 
-        assert "Specific error details" in caplog_fixture.text
+        assert "Specific error details" not in caplog_fixture.text
+        assert "ValueError" in caplog_fixture.text
 
     def test_decorator_logs_any_exception_type(self, caplog_fixture):
         """Verify decorator handles all exception types."""
@@ -285,9 +282,8 @@ class TestLoggingDecoratorComplex:
         result = obj.method(5)
 
         assert result == 10
-        # self is included in args
         assert "method" in caplog_fixture.text
-        assert "10" in caplog_fixture.text
+        assert "10" not in caplog_fixture.text
 
     def test_decorator_with_many_arguments(self, caplog_fixture):
         """Verify decorator handles functions with many arguments."""
@@ -301,7 +297,7 @@ class TestLoggingDecoratorComplex:
 
         assert result == 28
         assert "many_args" in caplog_fixture.text
-        assert "28" in caplog_fixture.text
+        assert "28" not in caplog_fixture.text
 
 
 # =============================================================================
@@ -716,7 +712,7 @@ class TestServerConfigDefaults:
         """Verify telemetry configuration defaults."""
         config = ServerConfig()
 
-        assert config.telemetry_enabled is True
+        assert config.telemetry_enabled is False
         assert config.telemetry_endpoint == "https://api-prod.coplay.dev/telemetry/events"
 
     def test_config_is_dataclass(self):
@@ -1074,7 +1070,7 @@ class TestTelemetryRecordTypes:
             call_args = mock_collector.record.call_args
             data = call_args[0][1]
 
-            assert data["error"] == "Test error"
+            assert data["error"] == "operation_failed"
 
     def test_record_tool_usage_error_truncation(self):
         """Verify record_tool_usage truncates long error messages."""
@@ -1089,8 +1085,7 @@ class TestTelemetryRecordTypes:
             call_args = mock_collector.record.call_args
             data = call_args[0][1]
 
-            # Should be truncated to 200 chars
-            assert len(data["error"]) == 200
+            assert data["error"] == "operation_failed"
 
     def test_record_tool_usage_with_sub_action(self):
         """Verify record_tool_usage includes sub_action when provided."""
@@ -1132,7 +1127,7 @@ class TestTelemetryRecordTypes:
             call_args = mock_collector.record.call_args
             data = call_args[0][1]
 
-            assert data["error"] == "Resource error"
+            assert data["error"] == "operation_failed"
 
 
 class TestTelemetryMilestones:
@@ -1408,7 +1403,8 @@ class TestErrorHandlingEdgeCases:
         with pytest.raises(RuntimeError, match="Outer error"):
             nested_error()
 
-        assert "Outer error" in caplog_fixture.text
+        assert "Outer error" not in caplog_fixture.text
+        assert "RuntimeError" in caplog_fixture.text
 
     def test_telemetry_with_invalid_duration(self):
         """Verify telemetry handles invalid duration values gracefully."""

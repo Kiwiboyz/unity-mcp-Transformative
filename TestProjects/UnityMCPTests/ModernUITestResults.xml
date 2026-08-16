@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="3" result="Passed" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.8326298">
+  <test-suite type="TestSuite" id="2325" name="UnityMCPTests" fullname="UnityMCPTests" runstate="Runnable" testcasecount="1183" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.832630" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties />
+    <test-suite type="Assembly" id="3622" name="MCPForUnityTests.EditMode.dll" fullname="G:/unity-mcp-Transformative/TestProjects/UnityMCPTests/Library/ScriptAssemblies/MCPForUnityTests.EditMode.dll" runstate="Runnable" testcasecount="1183" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.784142" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="20748" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+      </properties>
+      <test-suite type="TestSuite" id="3631" name="MCPForUnityTests" fullname="MCPForUnityTests" runstate="Runnable" testcasecount="1155" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.748192" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="3632" name="Editor" fullname="MCPForUnityTests.Editor" runstate="Runnable" testcasecount="1155" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.717002" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="3636" name="Tools" fullname="MCPForUnityTests.Editor.Tools" runstate="Runnable" testcasecount="575" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.680553" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="2958" name="ModernUIToolsTests" fullname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests" classname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:40Z" duration="2.656314" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="2960" name="Catalog_ResolveStyleSource_ReportsClearTypoMatch" fullname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests.Catalog_ResolveStyleSource_ReportsClearTypoMatch" methodname="Catalog_ResolveStyleSource_ReportsClearTypoMatch" classname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests" runstate="Runnable" seed="132358837" result="Passed" start-time="2026-08-16 05:21:38Z" end-time="2026-08-16 05:21:39Z" duration="0.882305" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="2959" name="Catalog_Status_DetectsSyntheticModernUIType" fullname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests.Catalog_Status_DetectsSyntheticModernUIType" methodname="Catalog_Status_DetectsSyntheticModernUIType" classname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests" runstate="Runnable" seed="1543666070" result="Passed" start-time="2026-08-16 05:21:39Z" end-time="2026-08-16 05:21:40Z" duration="0.977287" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="2961" name="Manage_Apply_CreatesAndConfiguresSyntheticComponent" fullname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests.Manage_Apply_CreatesAndConfiguresSyntheticComponent" methodname="Manage_Apply_CreatesAndConfiguresSyntheticComponent" classname="MCPForUnityTests.Editor.Tools.ModernUIToolsTests" runstate="Runnable" seed="2094499494" result="Passed" start-time="2026-08-16 05:21:40Z" end-time="2026-08-16 05:21:40Z" duration="0.784930" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

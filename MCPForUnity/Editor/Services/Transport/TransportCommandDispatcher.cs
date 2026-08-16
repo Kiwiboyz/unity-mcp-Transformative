@@ -361,6 +361,20 @@ namespace MCPForUnity.Editor.Services.Transport
                     return;
                 }
 
+                // This is the final Unity-side execution boundary. Tool visibility
+                // and EditorPrefs can only further restrict access; they cannot
+                // bypass the session authorization policy.
+                if (toolMeta != null)
+                {
+                    var authorization = McpAuthorizationService.Authorize(toolMeta);
+                    if (!authorization.Allowed)
+                    {
+                        pending.TrySetResult(SerializeAuthorizationError(authorization, command.type));
+                        RemovePending(id, pending);
+                        return;
+                    }
+                }
+
                 var logType = resourceMeta != null ? "resource" : toolMeta != null ? "tool" : "unknown";
                 var sw = McpLogRecord.IsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
                 var result = CommandRegistry.ExecuteCommand(command.type, parameters, pending.CompletionSource);
@@ -460,6 +474,18 @@ namespace MCPForUnity.Editor.Services.Transport
                 stackTrace
             };
             return JsonConvert.SerializeObject(errorResponse);
+        }
+
+        private static string SerializeAuthorizationError(McpAuthorizationResult authorization, string commandType)
+        {
+            return JsonConvert.SerializeObject(new
+            {
+                status = "error",
+                code = authorization.Code,
+                error = authorization.Message,
+                required_profile = authorization.RequiredProfile,
+                command = commandType
+            });
         }
 
         private static bool IsValidJson(string text)

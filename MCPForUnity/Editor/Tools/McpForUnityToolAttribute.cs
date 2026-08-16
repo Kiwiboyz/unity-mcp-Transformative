@@ -2,6 +2,16 @@ using System;
 
 namespace MCPForUnity.Editor.Tools
 {
+    /// <summary>Authority required before a tool may run in the Unity Editor.</summary>
+    public enum ToolCapability
+    {
+        Unspecified = 0,
+        Inspection,
+        ProjectAutomation,
+        DebugExecution,
+        HostSensitive
+    }
+
     /// <summary>
     /// Marks a class as an MCP tool handler
     /// </summary>
@@ -56,6 +66,12 @@ namespace MCPForUnity.Editor.Tools
         /// Useful for long-running operations like builds.
         /// </summary>
         public int MaxPollSeconds { get; set; } = 0;
+
+        /// <summary>
+        /// Declares the authority required to invoke this tool. New extension tools
+        /// must declare a capability; unspecified third-party tools fail closed.
+        /// </summary>
+        public ToolCapability Capability { get; set; } = ToolCapability.Unspecified;
 
         /// <summary>
         /// The command name used to route requests to this tool.

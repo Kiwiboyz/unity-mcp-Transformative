@@ -128,7 +128,7 @@ namespace MCPForUnity.Editor.Services
         /// </summary>
         public void Refresh()
         {
-            _useHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
+            _useHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, false);
             _debugLogs = EditorPrefs.GetBool(EditorPrefKeys.DebugLogs, false);
             _devModeForceServerRefresh = EditorPrefs.GetBool(EditorPrefKeys.DevModeForceServerRefresh, false);
             _uvxPathOverride = EditorPrefs.GetString(EditorPrefKeys.UvxPathOverride, string.Empty);
@@ -285,7 +285,7 @@ namespace MCPForUnity.Editor.Services
             switch (keyName)
             {
                 case nameof(UseHttpTransport):
-                    _useHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
+                    _useHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, false);
                     break;
                 case nameof(DebugLogs):
                     _debugLogs = EditorPrefs.GetBool(EditorPrefKeys.DebugLogs, false);

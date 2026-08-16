@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using MCPForUnity.Editor.Tools.AssetGen;
+using MCPForUnity.Editor.Services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -23,6 +24,7 @@ namespace MCPForUnityTests.Editor.AssetGen
         {
             _tempDir = Path.Combine(Path.GetTempPath(), "mcp_imf_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDir);
+            McpAuthorizationService.ApproveExternalImportRootForSession(_tempDir);
         }
 
         [TearDown]
@@ -31,6 +33,7 @@ namespace MCPForUnityTests.Editor.AssetGen
             if (AssetDatabase.IsValidFolder(TestFolder))
                 AssetDatabase.DeleteAsset(TestFolder);
             try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); } catch { /* ignore */ }
+            McpAuthorizationService.ApproveExternalImportRootForSession(null);
         }
 
         private static JObject Call(JObject p)

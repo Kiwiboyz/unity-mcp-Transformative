@@ -121,6 +121,28 @@ namespace MCPForUnity.Editor.Tools
                     continue;
                 }
 
+                if (toolMeta != null)
+                {
+                    var authorization = McpAuthorizationService.Authorize(toolMeta);
+                    if (!authorization.Allowed)
+                    {
+                        invocationFailureCount++;
+                        anyCommandFailed = true;
+                        commandResults.Add(new
+                        {
+                            tool = toolName,
+                            callSucceeded = false,
+                            result = new ErrorResponse(authorization.Code, new
+                            {
+                                message = authorization.Message,
+                                required_profile = authorization.RequiredProfile
+                            })
+                        });
+                        if (failFast) break;
+                        continue;
+                    }
+                }
+
                 try
                 {
                     var result = await CommandRegistry.InvokeCommandAsync(toolName, commandParams).ConfigureAwait(true);

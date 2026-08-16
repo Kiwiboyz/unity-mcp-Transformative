@@ -13,7 +13,7 @@ using UnityEditor;
 
 namespace MCPForUnity.Editor.Tools
 {
-    [McpForUnityTool("unity_reflect", AutoRegister = false, Group = "docs")]
+    [McpForUnityTool("unity_reflect", AutoRegister = false, Group = "docs", Capability = ToolCapability.Inspection)]
     public static class UnityReflect
     {
         private static Dictionary<string, Type[]> _assemblyTypeCache;

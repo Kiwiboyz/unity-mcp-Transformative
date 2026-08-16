@@ -48,7 +48,9 @@ namespace MCPForUnity.Editor.Helpers
                 }
 
                 // Check EditorPrefs
-                return !UnityEditor.EditorPrefs.GetBool(TELEMETRY_DISABLED_KEY, false);
+                // Telemetry is opt-in for local game projects. Existing users can
+                // still explicitly enable it through the settings UI.
+                return !UnityEditor.EditorPrefs.GetBool(TELEMETRY_DISABLED_KEY, true);
             }
         }
 
@@ -159,7 +161,7 @@ namespace MCPForUnity.Editor.Helpers
 
             if (!string.IsNullOrEmpty(error))
             {
-                data["error"] = error.Substring(0, Math.Min(200, error.Length));
+                data["error"] = "operation_failed";
             }
 
             RecordEvent("bridge_connection", data);
@@ -179,7 +181,7 @@ namespace MCPForUnity.Editor.Helpers
 
             if (!string.IsNullOrEmpty(error))
             {
-                data["error"] = error.Substring(0, Math.Min(200, error.Length));
+                data["error"] = "operation_failed";
             }
 
             RecordEvent("tool_execution_unity", data);

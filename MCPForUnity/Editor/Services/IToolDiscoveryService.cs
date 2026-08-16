@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MCPForUnity.Editor.Tools;
 
 namespace MCPForUnity.Editor.Services
 {
@@ -20,6 +21,7 @@ namespace MCPForUnity.Editor.Services
         public int MaxPollSeconds { get; set; } = 0;
         public bool IsBuiltIn { get; set; }
         public string Group { get; set; } = "core";
+        public ToolCapability Capability { get; set; } = ToolCapability.Unspecified;
     }
 
     /// <summary>

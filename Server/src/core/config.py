@@ -90,7 +90,7 @@ class ServerConfig:
     port_registry_ttl: float = 5.0
 
     # Telemetry settings
-    telemetry_enabled: bool = True
+    telemetry_enabled: bool = False
     # Align with telemetry.py default Cloud Run endpoint
     telemetry_endpoint: str = "https://api-prod.coplay.dev/telemetry/events"
 

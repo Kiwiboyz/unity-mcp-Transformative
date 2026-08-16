@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using MCPForUnity.Editor.Helpers;
 using MCPForUnity.Editor.Security;
+using MCPForUnity.Editor.Services;
 using MCPForUnity.Editor.Services.AssetGen;
 using MCPForUnity.Editor.Services.AssetGen.Import;
 using Newtonsoft.Json.Linq;
@@ -15,7 +16,7 @@ namespace MCPForUnity.Editor.Tools.AssetGen
     /// the shared ModelImportPipeline (glTFast/FBX/OBJ/zip handling, scale-normalize, material
     /// settings). Placement into the scene is the caller's job (kept single-purpose).
     /// </summary>
-    [McpForUnityTool("import_model_file", AutoRegister = false, Group = "asset_gen")]
+    [McpForUnityTool("import_model_file", AutoRegister = false, Group = "asset_gen", Capability = MCPForUnity.Editor.Tools.ToolCapability.ProjectAutomation)]
     public static class ImportModelFile
     {
         private static readonly string[] SupportedExt = { ".fbx", ".obj", ".glb", ".gltf", ".zip" };
@@ -30,7 +31,10 @@ namespace MCPForUnity.Editor.Tools.AssetGen
                 if (string.IsNullOrWhiteSpace(source))
                     return new ErrorResponse("'source_path' is required.");
 
-                string srcAbs = ResolveSource(source);
+                string srcAbs;
+                string sourceError;
+                if (!McpAuthorizationService.TryResolveApprovedImportSource(source, out srcAbs, out sourceError))
+                    return new ErrorResponse(sourceError);
                 if (!File.Exists(srcAbs))
                     return new ErrorResponse($"Source file not found: {source}");
 
@@ -64,13 +68,6 @@ namespace MCPForUnity.Editor.Tools.AssetGen
             {
                 return new ErrorResponse(SecretRedactor.Scrub(e.Message));
             }
-        }
-
-        private static string ResolveSource(string source)
-        {
-            string s = source.Replace('\\', '/');
-            if (s == "Assets" || s.StartsWith("Assets/")) return AssetGenPaths.ToAbsolute(s);
-            return s; // absolute path on disk
         }
 
         private static string StageUnderAssets(string srcAbs, string baseName, string ext, string outputFolder)

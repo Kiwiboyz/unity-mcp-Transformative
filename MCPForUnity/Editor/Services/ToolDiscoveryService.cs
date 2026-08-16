@@ -156,7 +156,8 @@ namespace MCPForUnity.Editor.Services
                     RequiresPolling = toolAttr.RequiresPolling,
                     PollAction = string.IsNullOrEmpty(toolAttr.PollAction) ? "status" : toolAttr.PollAction,
                     MaxPollSeconds = toolAttr.MaxPollSeconds,
-                    Group = toolAttr.Group ?? "core"
+                    Group = toolAttr.Group ?? "core",
+                    Capability = toolAttr.Capability
                 };
 
                 metadata.IsBuiltIn = StringCaseUtility.IsBuiltInMcpType(
@@ -248,6 +249,9 @@ namespace MCPForUnity.Editor.Services
             string key = GetToolPreferenceKey(metadata.Name);
             if (!EditorPrefs.HasKey(key))
             {
+                // Preserve the legacy built-in visibility default. This preference
+                // is only an additional ceiling: authorization is enforced again
+                // at the Unity-side dispatch boundary.
                 bool defaultValue = metadata.AutoRegister || metadata.IsBuiltIn;
                 EditorPrefs.SetBool(key, defaultValue);
             }
