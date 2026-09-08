@@ -2,6 +2,13 @@
 
 This fork is being hardened for local Codex and Rider Codex CLI use with Project Storm. The detailed design and rollout record is in [plans/project-storm-local-hardening.md](plans/project-storm-local-hardening.md).
 
+## Project Storm package distribution
+
+- `MCPForUnity/` in this fork is the sole source of truth. Its Project Storm release mirror is `C:\Users\Jordan\Documents\Transformitive Games\Project-Storm\Packages\com.coplaydev.unity-mcp`.
+- Never edit the embedded Project Storm mirror directly. Make package changes here, validate them, commit and push this fork, then run `Project-Storm\Tools\Sync-ProjectStormMcpPackage.ps1 -Mode Sync` and verify it with the script's default `Verify` mode.
+- The embedded mirror contains only `MCPForUnity/`. Do not copy `Server/` into the Unity project; developers who run MCP tools configure that server separately from their local fork checkout.
+- Before submitting through Unity Version Control/SVN, submit the embedded mirror and Project Storm's `Packages/manifest.json` plus `Packages/packages-lock.json` together.
+
 ## Security and usability policy
 
 - Preserve the intended workflow: Codex/Rider may inspect, edit scripts, modify scenes and assets, and add Project Storm-specific tools.
