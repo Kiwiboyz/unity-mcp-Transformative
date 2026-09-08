@@ -160,9 +160,9 @@ namespace MCPForUnity.Editor.Clients.Configurators
         {
             "Install OpenClaw",
             "Install the bridge plugin: npm install -g openclaw-mcp-bridge (or pnpm add -g openclaw-mcp-bridge)",
-            "In MCP for Unity, choose OpenClaw and click Configure",
-            "OpenClaw uses the currently selected MCP for Unity transport (HTTP or stdio)",
-            "OpenClaw exposes a proxy tool such as unityMCP__call for Unity MCP access",
+            "In Transformative MCP for Project Storm, choose OpenClaw and click Configure",
+            "OpenClaw uses the currently selected Transformative MCP transport (HTTP or stdio)",
+            "OpenClaw exposes a proxy tool such as unityMCP__call for Transformative MCP access",
             "Restart OpenClaw if the plugin does not hot-reload the new config"
         };
 

@@ -14,9 +14,9 @@
 }
 
 .setup-logo {
-    width: 34px;
-    height: 34px;
-    margin-right: 12px;
+    width: 60px;
+    height: 60px;
+    margin-right: 14px;
     flex-shrink: 0;
 }
 

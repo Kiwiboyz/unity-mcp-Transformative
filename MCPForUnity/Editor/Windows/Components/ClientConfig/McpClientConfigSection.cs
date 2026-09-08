@@ -210,7 +210,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                 McpStatus.CommunicationError => "Communication Error",
                 McpStatus.NoResponse => "No Response",
                 McpStatus.UnsupportedOS => "Unsupported OS",
-                McpStatus.MissingConfig => "Missing MCPForUnity Config",
+                McpStatus.MissingConfig => "Missing Transformative MCP configuration",
                 McpStatus.Error => "Error",
                 McpStatus.VersionMismatch => "Version Mismatch",
                 _ => "Unknown",

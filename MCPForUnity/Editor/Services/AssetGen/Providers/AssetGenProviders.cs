@@ -85,7 +85,7 @@ namespace MCPForUnity.Editor.Services.AssetGen.Providers
         /// Shared by the asset-gen tools and the job manager so the wording stays in one place.
         /// </summary>
         public static string MissingKeyMessage(string provider)
-            => $"No API key configured for '{provider}'. Add it in the MCP for Unity → Asset Generation tab " +
+            => $"No API key configured for '{provider}'. Add it in the Transformative MCP for Project Storm → Asset Generation tab " +
                $"(or set MCPFORUNITY_{(provider ?? string.Empty).ToUpperInvariant()}_API_KEY).";
     }
 }

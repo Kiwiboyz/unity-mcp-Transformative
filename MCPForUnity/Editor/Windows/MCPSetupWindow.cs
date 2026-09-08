@@ -49,7 +49,7 @@ namespace MCPForUnity.Editor.Windows
 
         public static void ShowWindow(DependencyCheckResult dependencyResult = null)
         {
-            var window = GetWindow<MCPSetupWindow>("MCP Setup");
+            var window = GetWindow<MCPSetupWindow>("Transformative MCP Setup");
             window.minSize = new Vector2(480, 320);
             window._dependencyResult = dependencyResult ?? DependencyManager.CheckAllDependencies();
             window.Show();
@@ -173,7 +173,7 @@ namespace MCPForUnity.Editor.Windows
             }
             if (clientToggles.Count == 0)
             {
-                clientsList.Add(new Label("No supported MCP clients detected on this machine. You can configure clients later from Tools → MCP for Unity."));
+                clientsList.Add(new Label("No supported MCP clients detected on this machine. You can configure clients later from Tools → Transformative MCP for Project Storm."));
                 configureSelectedButton.SetEnabled(false);
             }
         }
@@ -339,13 +339,13 @@ namespace MCPForUnity.Editor.Windows
             // Update overall status
             if (_dependencyResult.IsSystemReady)
             {
-                statusMessage.text = "✓ All requirements met! MCP for Unity is ready to use.";
+                statusMessage.text = "✓ All requirements met! Transformative MCP for Project Storm is ready to use.";
                 statusMessage.style.color = new StyleColor(Color.green);
                 installationSection.style.display = DisplayStyle.None;
             }
             else
             {
-                statusMessage.text = "⚠ Missing dependencies. MCP for Unity requires all dependencies to function.";
+                statusMessage.text = "⚠ Missing dependencies. Transformative MCP for Project Storm requires all dependencies to function.";
                 statusMessage.style.color = new StyleColor(new Color(1f, 0.6f, 0f)); // Orange
                 installationSection.style.display = DisplayStyle.Flex;
                 installationInstructions.text = DependencyManager.GetInstallationRecommendations();

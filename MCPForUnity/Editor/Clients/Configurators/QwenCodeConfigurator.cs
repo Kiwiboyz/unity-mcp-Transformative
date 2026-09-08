@@ -36,7 +36,7 @@ namespace MCPForUnity.Editor.Clients.Configurators
             "OR click 'Manual Setup' to copy the configuration JSON",
             "Open ~/.qwen/settings.json and paste the configuration",
             "Save and restart Qwen Code",
-            "Use /mcp command in Qwen Code to verify Unity MCP is connected",
+            "Use /mcp command in Qwen Code to verify Transformative MCP for Project Storm is connected",
             "Note: For full functionality, open Unity Editor and start HTTP server"
         };
     }

@@ -69,7 +69,7 @@ namespace MCPForUnity.Editor.Clients.Configurators
                        "# 3. Copy the STDIO configuration snippet that will appear\n" +
                        "# \n" +
                        "# OPTION 2: SSE mode (future support)\n" +
-                       "# Note: Unity MCP does not currently have an SSE endpoint.\n" +
+                       "# Note: Transformative MCP for Project Storm does not currently have an SSE endpoint.\n" +
                        "# This may be added in a future update.";
             }
 

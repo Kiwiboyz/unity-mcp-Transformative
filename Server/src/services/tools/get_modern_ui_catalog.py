@@ -17,7 +17,7 @@ from transport.unity_transport import send_with_unity_instance
         "Use status/catalog/describe before building UI, resolve_style_source to safely find nearby style donors, "
         "and preflight to validate a versioned screen specification before requesting project automation."
     ),
-    annotations=ToolAnnotations(title="Get Modern UI Catalog", readOnlyHint=True),
+    annotations=ToolAnnotations(title="Get Modern UI Catalog", readOnlyHint=True, destructiveHint=False),
 )
 async def get_modern_ui_catalog(
     ctx: Context,

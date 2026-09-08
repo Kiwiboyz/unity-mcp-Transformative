@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MCPForUnity.Editor.Constants;
 using MCPForUnity.Editor.Tools;
 using UnityEditor;
 using UnityEngine;
@@ -15,8 +16,9 @@ namespace MCPForUnity.Editor.Services
     {
         private const string ProjectAutomationKey = "MCPForUnity.Security.ProjectAutomationApproved";
         private const string DebugExecutionExpiryKey = "MCPForUnity.Security.DebugExecutionExpiryUtcTicks";
+        private const string OfficeModeKey = "MCPForUnity.Security.OfficeModeEnabled";
         private const string ExternalImportRootKey = "MCPForUnity.Security.ExternalImportRoot";
-        private const int DebugExecutionMinutes = 60;
+        private const int DebugExecutionHours = 3;
 
         static McpAuthorizationService()
         {
@@ -39,13 +41,13 @@ namespace MCPForUnity.Editor.Services
                     return IsProjectAutomationApproved
                         ? McpAuthorizationResult.Allow()
                         : McpAuthorizationResult.Deny("approval_required",
-                            "Project Automation is disabled. Ask the user to enable 'MCP for Unity/Security/Enable Project Automation This Session' in Unity.",
+                            "Project Automation is disabled. Ask the user to enable 'Window/Transformative MCP for Project Storm/Security/Enable Project Automation This Session' or 'Enable Office Mode This Session' in Unity.",
                             "ProjectAutomation");
                 case ToolCapability.DebugExecution:
                     return IsDebugExecutionApproved
                         ? McpAuthorizationResult.Allow()
                         : McpAuthorizationResult.Deny("approval_required",
-                            "Debug Execution is disabled. Ask the user to enable 'MCP for Unity/Security/Enable Debug Execution For One Hour' in Unity.",
+                            "Debug Execution is disabled. Ask the user to enable 'Window/Transformative MCP for Project Storm/Security/Enable Debug Execution For Three Hours' or 'Enable Office Mode This Session' in Unity.",
                             "DebugExecution");
                 default:
                     return McpAuthorizationResult.Deny("approval_required",
@@ -64,8 +66,9 @@ namespace MCPForUnity.Editor.Services
             return metadata.IsBuiltIn ? ToolCapability.ProjectAutomation : ToolCapability.HostSensitive;
         }
 
-        internal static bool IsProjectAutomationApproved => SessionState.GetBool(ProjectAutomationKey, false);
-        internal static bool IsDebugExecutionApproved => GetDebugExecutionExpiryUtc() > DateTime.UtcNow;
+        internal static bool IsOfficeModeEnabled => SessionState.GetBool(OfficeModeKey, false);
+        internal static bool IsProjectAutomationApproved => IsOfficeModeEnabled || SessionState.GetBool(ProjectAutomationKey, false);
+        internal static bool IsDebugExecutionApproved => IsOfficeModeEnabled || GetDebugExecutionExpiryUtc() > DateTime.UtcNow;
 
         internal static object GetSafeStatus()
         {
@@ -73,7 +76,10 @@ namespace MCPForUnity.Editor.Services
             {
                 inspection = "enabled",
                 project_automation = IsProjectAutomationApproved ? "enabled_this_unity_session" : "approval_required",
-                debug_execution = IsDebugExecutionApproved ? "enabled_temporary" : "approval_required",
+                debug_execution = IsDebugExecutionApproved
+                    ? (IsOfficeModeEnabled ? "enabled_this_unity_session" : "enabled_temporary")
+                    : "approval_required",
+                office_mode = IsOfficeModeEnabled ? "enabled_this_unity_session" : "disabled",
                 external_import_root = string.IsNullOrWhiteSpace(SessionState.GetString(ExternalImportRootKey, string.Empty))
                     ? "not_approved" : "approved_this_unity_session"
             };
@@ -90,7 +96,14 @@ namespace MCPForUnity.Editor.Services
         {
             SessionState.SetBool(ProjectAutomationKey, false);
             SessionState.SetString(DebugExecutionExpiryKey, string.Empty);
+            SessionState.SetBool(OfficeModeKey, false);
             SessionState.SetString(ExternalImportRootKey, string.Empty);
+        }
+
+        // Centralizes the paired session approvals used by the menu and focused tests.
+        internal static void EnableOfficeModeForSession()
+        {
+            SessionState.SetBool(OfficeModeKey, true);
         }
 
         internal static bool TryResolveApprovedImportSource(string source, out string absolutePath, out string error)
@@ -129,7 +142,7 @@ namespace MCPForUnity.Editor.Services
                 string approvedRoot = SessionState.GetString(ExternalImportRootKey, string.Empty);
                 if (string.IsNullOrWhiteSpace(approvedRoot))
                 {
-                    error = "approval_required: select 'MCP for Unity/Security/Approve External Import Root This Session' in Unity first.";
+                    error = "approval_required: select 'Window/Transformative MCP for Project Storm/Security/Approve External Import Root This Session' in Unity first.";
                     return false;
                 }
 
@@ -149,34 +162,42 @@ namespace MCPForUnity.Editor.Services
             }
         }
 
-        [MenuItem("MCP for Unity/Security/Enable Project Automation This Session", false, 200)]
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Enable Office Mode This Session", false, 199)]
+        private static void EnableOfficeModeThisSession()
+        {
+            if (EditorUtility.DisplayDialog("Enable Office Mode", "Allow MCP project automation and arbitrary debug C# execution until Unity closes? Use this only for a trusted local or remote session connected to this Unity editor.", "Enable Office Mode", "Cancel"))
+                EnableOfficeModeForSession();
+        }
+
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Enable Project Automation This Session", false, 200)]
         private static void EnableProjectAutomationThisSession()
         {
             if (EditorUtility.DisplayDialog("Enable Project Automation", "Allow MCP tools to modify this project until Unity closes? Inspection tools remain available without this approval.", "Enable this session", "Cancel"))
                 SessionState.SetBool(ProjectAutomationKey, true);
         }
 
-        [MenuItem("MCP for Unity/Security/Disable Project Automation", false, 201)]
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Disable Project Automation", false, 201)]
         private static void DisableProjectAutomation()
         {
             SessionState.SetBool(ProjectAutomationKey, false);
             SessionState.SetString(DebugExecutionExpiryKey, string.Empty);
+            SessionState.SetBool(OfficeModeKey, false);
             SessionState.SetString(ExternalImportRootKey, string.Empty);
         }
 
-        [MenuItem("MCP for Unity/Security/Enable Debug Execution For One Hour", false, 202)]
-        private static void EnableDebugExecutionForOneHour()
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Enable Debug Execution For Three Hours", false, 202)]
+        private static void EnableDebugExecutionForThreeHours()
         {
             if (!IsProjectAutomationApproved)
             {
                 EditorUtility.DisplayDialog("Project Automation Required", "Enable Project Automation for this Unity session before enabling arbitrary debug code execution.", "OK");
                 return;
             }
-            if (EditorUtility.DisplayDialog("Enable Debug Execution", "Allow execute_code to compile and run arbitrary C# for one hour? Only enable this for a trusted local agent session.", "Enable for one hour", "Cancel"))
-                SessionState.SetString(DebugExecutionExpiryKey, DateTime.UtcNow.AddMinutes(DebugExecutionMinutes).Ticks.ToString());
+            if (EditorUtility.DisplayDialog("Enable Debug Execution", "Allow execute_code to compile and run arbitrary C# for three hours? Only enable this for a trusted local agent session.", "Enable for three hours", "Cancel"))
+                SessionState.SetString(DebugExecutionExpiryKey, DateTime.UtcNow.AddHours(DebugExecutionHours).Ticks.ToString());
         }
 
-        [MenuItem("MCP for Unity/Security/Approve External Import Root This Session", false, 203)]
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Approve External Import Root This Session", false, 203)]
         private static void ApproveExternalImportRootThisSession()
         {
             string selected = EditorUtility.OpenFolderPanel("Approve external model import root", string.Empty, string.Empty);
@@ -184,13 +205,16 @@ namespace MCPForUnity.Editor.Services
                 ApproveExternalImportRootForSession(selected);
         }
 
-        [MenuItem("MCP for Unity/Security/Show Policy Status", false, 220)]
+        [MenuItem(ProductInfo.MenuRoot + "/Security/Show Policy Status", false, 220)]
         private static void ShowPolicyStatus()
         {
-            string debug = IsDebugExecutionApproved ? "enabled until " + GetDebugExecutionExpiryUtc().ToLocalTime().ToString("t") : "disabled";
-            EditorUtility.DisplayDialog("MCP for Unity Policy Status",
+            string debug = IsOfficeModeEnabled
+                ? "enabled this Unity session (Office Mode)"
+                : IsDebugExecutionApproved ? "enabled until " + GetDebugExecutionExpiryUtc().ToLocalTime().ToString("t") : "disabled";
+            EditorUtility.DisplayDialog("Transformative MCP for Project Storm Policy Status",
                 "Inspection: enabled\nProject Automation: " + (IsProjectAutomationApproved ? "enabled this session" : "disabled") +
-                "\nDebug Execution: " + debug + "\nExternal import root: " +
+                "\nDebug Execution: " + debug + "\nOffice Mode: " + (IsOfficeModeEnabled ? "enabled this session" : "disabled") +
+                "\nExternal import root: " +
                 (string.IsNullOrEmpty(SessionState.GetString(ExternalImportRootKey, string.Empty)) ? "none" : "approved this session"), "OK");
         }
 

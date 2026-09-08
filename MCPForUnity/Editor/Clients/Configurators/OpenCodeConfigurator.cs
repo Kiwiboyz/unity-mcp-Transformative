@@ -162,9 +162,9 @@ namespace MCPForUnity.Editor.Clients.Configurators
         public override IList<string> GetInstallationSteps() => new List<string>
         {
             "Install OpenCode (https://opencode.ai)",
-            "Click Configure to add Unity MCP to ~/.config/opencode/opencode.json",
+            "Click Configure to add Transformative MCP for Project Storm to ~/.config/opencode/opencode.json",
             "Restart OpenCode",
-            "The Unity MCP server should be detected automatically"
+            "The Transformative MCP server should be detected automatically"
         };
 
         private static JObject BuildServerEntry()

@@ -148,7 +148,7 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
             if (clearScreenshotsFolderButton != null)
                 clearScreenshotsFolderButton.tooltip = "Clear override and use the built-in default (Assets/Screenshots).";
             if (deploySourcePath != null)
-                deploySourcePath.tooltip = "Copy a MCPForUnity folder into this project's package location.";
+                deploySourcePath.tooltip = "Copy the Transformative MCP package folder into this project's package location.";
 
             // Set tooltips for buttons
             if (browseUvxButton != null)
@@ -160,11 +160,11 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
             if (clearGitUrlButton != null)
                 clearGitUrlButton.tooltip = "Clear override and use default PyPI package";
             if (browseDeploySourceButton != null)
-                browseDeploySourceButton.tooltip = "Select MCPForUnity source folder";
+                browseDeploySourceButton.tooltip = "Select Transformative MCP package source folder";
             if (clearDeploySourceButton != null)
                 clearDeploySourceButton.tooltip = "Clear deployment source path";
             if (deployButton != null)
-                deployButton.tooltip = "Copy MCPForUnity to this project's package location";
+                deployButton.tooltip = "Copy Transformative MCP into this project's package location";
             if (deployRestoreButton != null)
                 deployRestoreButton.tooltip = "Restore the last backup before deployment";
 
@@ -573,7 +573,7 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
 
         private void OnBrowseDeploySourceClicked()
         {
-            string picked = EditorUtility.OpenFolderPanel("Select MCPForUnity folder", string.Empty, string.Empty);
+            string picked = EditorUtility.OpenFolderPanel("Select Transformative MCP package folder", string.Empty, string.Empty);
             if (string.IsNullOrEmpty(picked))
             {
                 return;

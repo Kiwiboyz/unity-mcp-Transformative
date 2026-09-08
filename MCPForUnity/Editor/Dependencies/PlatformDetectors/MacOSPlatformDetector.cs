@@ -85,7 +85,7 @@ namespace MCPForUnity.Editor.Dependencies.PlatformDetectors
    - Curl: curl -LsSf https://astral.sh/uv/install.sh | sh
    - Homebrew: brew install uv
 
-3. MCP Server: Will be installed automatically by MCP for Unity Bridge
+3. MCP Server: Will be installed automatically by Transformative MCP for Project Storm
 
 Note: If using Homebrew, make sure /opt/homebrew/bin is in your PATH.";
         }

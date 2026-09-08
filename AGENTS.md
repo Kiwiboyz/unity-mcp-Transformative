@@ -14,6 +14,9 @@ This fork is being hardened for local Codex and Rider Codex CLI use with Project
 
 ## Adding tools
 
+- Treat every MCP tool as a paired change: add a Python wrapper under `Server/src/services/tools/` and its matching Unity handler under `MCPForUnity/Editor/Tools/<Domain>/`. The wrapper owns the MCP schema, input validation, group, and approval annotations; the handler owns Unity-side work.
+- Keep the tool name, input contract, tool group, and capability/approval level aligned across both halves. A wrapper without a handler, or a handler without a wrapper, is incomplete.
+- Add focused Python and Unity EditMode coverage for every new tool. When testing locally, install this fork's `MCPForUnity/package.json` and run this fork's `Server` directory; do not validate against the public release package or server.
 - New tools must declare a capability class when the policy infrastructure is introduced:
   - `Inspection` for read-only tools.
   - `ProjectAutomation` for normal Project Storm scene, asset, and script tools.

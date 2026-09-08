@@ -32,7 +32,10 @@ from utils.module_discovery import discover_modules
 # body calls preflight(refresh_if_dirty=True) -- that can trigger a domain reload.
 READ_ONLY = {
     "debug_request_context",
+    "get_environment_catalog",
     "find_in_file",
+    "get_equipment_catalog",
+    "get_modern_ui_catalog",
     "get_sha",
     "get_test_job",
     "manage_script_capabilities",

@@ -114,7 +114,7 @@ namespace MCPForUnity.Editor.Dependencies
 
             if (missing.Count == 0)
             {
-                result.RecommendedActions.Add("All dependencies are available. You can start using MCP for Unity.");
+                result.RecommendedActions.Add("All dependencies are available. You can start using Transformative MCP for Project Storm.");
                 return;
             }
 
@@ -136,7 +136,7 @@ namespace MCPForUnity.Editor.Dependencies
 
             if (result.GetMissingRequired().Count > 0)
             {
-                result.RecommendedActions.Add("Use the Setup Window (Window > MCP for Unity > Local Setup Window) for guided installation.");
+                result.RecommendedActions.Add("Use the Setup Window (Window > Transformative MCP for Project Storm > Local Setup Window) for guided installation.");
             }
         }
     }

@@ -45,7 +45,7 @@ namespace MCPForUnity.Editor.Clients.Configurators
         {
             "Open Antigravity IDE",
             "Click the more_horiz menu in the Agent pane > MCP Servers",
-            "Select 'Install' for Unity MCP or use the Configure button above",
+            "Select 'Install' for Transformative MCP for Project Storm or use the Configure button above",
             "Restart Antigravity IDE if necessary"
         };
     }

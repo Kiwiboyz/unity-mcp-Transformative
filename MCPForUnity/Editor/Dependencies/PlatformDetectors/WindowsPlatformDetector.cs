@@ -97,7 +97,7 @@ namespace MCPForUnity.Editor.Dependencies.PlatformDetectors
    - Run: powershell -ExecutionPolicy ByPass -c ""irm https://astral.sh/uv/install.ps1 | iex""
    - Or download from: https://github.com/astral-sh/uv/releases
 
-3. MCP Server: Will be installed automatically by MCP for Unity Bridge";
+3. MCP Server: Will be installed automatically by Transformative MCP for Project Storm";
         }
 
         public override DependencyStatus DetectUv()

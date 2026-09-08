@@ -52,5 +52,26 @@ namespace MCPForUnity.Editor.Tests.EditMode.Services
             Assert.IsFalse(result.Allowed);
             Assert.AreEqual("HostSensitive", result.RequiredProfile);
         }
+
+        [Test]
+        public void OfficeMode_AllowsProjectAutomationAndDebugExecutionForThisSession()
+        {
+            McpAuthorizationService.EnableOfficeModeForSession();
+
+            var projectAutomation = McpAuthorizationService.Authorize(new ToolMetadata
+            {
+                Name = "change_scene",
+                Capability = ToolCapability.ProjectAutomation
+            });
+            var debugExecution = McpAuthorizationService.Authorize(new ToolMetadata
+            {
+                Name = "execute_code",
+                Capability = ToolCapability.DebugExecution
+            });
+
+            Assert.IsTrue(McpAuthorizationService.IsOfficeModeEnabled);
+            Assert.IsTrue(projectAutomation.Allowed);
+            Assert.IsTrue(debugExecution.Allowed);
+        }
     }
 }

@@ -30,7 +30,7 @@ namespace MCPForUnity.Editor.Setup
 
         public static void OpenWindow()
         {
-            GetWindow<McpForUnitySkillInstaller>("Unity MCP Skill Install(Sync)");
+            GetWindow<McpForUnitySkillInstaller>("Transformative MCP Skill Sync");
         }
 
         private void OnEnable()
@@ -63,7 +63,7 @@ namespace MCPForUnity.Editor.Setup
         private void OnGUI()
         {
             FlushPendingLogs();
-            EditorGUILayout.HelpBox("Sync Unity MCP Skill to the latest on the selected branch and output the changed file list.", MessageType.Info);
+            EditorGUILayout.HelpBox("Sync the Transformative MCP skill to the latest on the selected branch and output the changed file list.", MessageType.Info);
             EditorGUILayout.Space(4f);
 
             EditorGUILayout.LabelField("Config", EditorStyles.boldLabel);

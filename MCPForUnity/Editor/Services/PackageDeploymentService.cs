@@ -91,7 +91,7 @@ namespace MCPForUnity.Editor.Services
             string sourcePath = GetStoredSourcePath();
             if (string.IsNullOrEmpty(sourcePath))
             {
-                return Fail("Select a MCPForUnity folder first.");
+                return Fail("Select a Transformative MCP package folder first.");
             }
 
             string validationError = ValidateSource(sourcePath, throwOnError: false);
@@ -108,15 +108,15 @@ namespace MCPForUnity.Editor.Services
 
             if (PathsEqual(sourcePath, targetPath))
             {
-                return Fail("Source and target are the same. Choose a different MCPForUnity folder.");
+                return Fail("Source and target are the same. Choose a different Transformative MCP package folder.");
             }
 
             try
             {
-                EditorUtility.DisplayProgressBar("Deploy MCP for Unity", "Creating backup...", 0.25f);
+                EditorUtility.DisplayProgressBar("Deploy Transformative MCP", "Creating backup...", 0.25f);
                 string backupPath = CreateBackup(targetPath);
 
-                EditorUtility.DisplayProgressBar("Deploy MCP for Unity", "Replacing package contents...", 0.7f);
+                EditorUtility.DisplayProgressBar("Deploy Transformative MCP", "Replacing package contents...", 0.7f);
                 CopyCoreFolders(sourcePath, targetPath);
 
                 EditorPrefs.SetString(EditorPrefKeys.PackageDeployLastBackupPath, backupPath);
@@ -159,7 +159,7 @@ namespace MCPForUnity.Editor.Services
 
             try
             {
-                EditorUtility.DisplayProgressBar("Restore MCP for Unity", "Restoring backup...", 0.5f);
+                EditorUtility.DisplayProgressBar("Restore Transformative MCP", "Restoring backup...", 0.5f);
                 ReplaceDirectory(backupPath, targetPath);
 
                 AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);

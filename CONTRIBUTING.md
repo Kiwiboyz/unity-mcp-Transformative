@@ -16,9 +16,28 @@ Thanks for wanting to help! MCP for Unity is community-maintained and PRs of any
 ## What We Look For
 
 - **Tests for new behavior.** Python tests live in `Server/tests/`; Unity EditMode tests live in `TestProjects/UnityMCPTests/Assets/Tests/`.
-- **Domain symmetry.** New tools live in *both* `Server/src/services/tools/manage_<domain>.py` (Python MCP tool) and `MCPForUnity/Editor/Tools/Manage<Domain>.cs` (C# implementation). See [Adding a New Tool](https://coplaydev.github.io/unity-mcp/contributing/dev-setup).
+- **Domain symmetry.** New tools need both a Python MCP wrapper and a Unity C# handler. See the required layout below and [Adding a New Tool](https://coplaydev.github.io/unity-mcp/contributing/dev-setup).
 - **Minimal abstraction.** Three similar lines of code is better than a helper that's only used once.
 - **Documentation as code.** Tool reference pages under `website/docs/reference/` are auto-generated — never hand-edit them outside the `<!-- examples:start --><!-- examples:end -->` blocks.
+
+## Adding a custom tool
+
+Every tool has two required halves. A tool is not complete when only one is added.
+
+| Half | Location | Responsibility |
+| --- | --- | --- |
+| MCP server wrapper | `Server/src/services/tools/<tool>.py` | Declares the MCP schema, validates inputs, assigns the tool group and approval annotations, and forwards the request to Unity. |
+| Unity package handler | `MCPForUnity/Editor/Tools/<Domain>/<Tool>.cs` | Receives the request through the editor bridge and performs Unity inspection or mutation. Keep Project Storm-specific code here, never in the game's `Assets/` folder. |
+
+For each new tool:
+
+1. Add both halves and use the same tool name, input contract, group, and approval/capability level.
+2. Register the tool group in the server registry when it is new; module discovery handles individual wrapper imports.
+3. Add focused Python tests under `Server/tests/` and Unity EditMode tests where the handler has testable behaviour.
+4. Update package/server documentation and generated tool-reference examples as required.
+5. During local development, install the local `MCPForUnity/package.json` package into Unity and configure the MCP client to run the matching local `Server` directory. Installing only one half cannot expose a working tool.
+
+Existing examples: Modern UI, Environment/sky, and Equipment each use this split.
 
 ## Before You Push
 

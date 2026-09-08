@@ -95,3 +95,21 @@ Notes:
 - Enable “Show Debug Logs” in the header for more details in the Console when diagnosing issues.
 
 ---
+
+## Environment authoring
+
+The `vfx` group includes `get_environment_catalog` and `manage_environment` for reflection-safe HDRP, Expanse, weather, storm, and environment-VFX authoring. Start with `status`, `catalog`, `inspect_context`, and `inspect_authority`; use the exact `global_id` or `asset_path` returned by inspection when preflighting a change.
+
+`manage_environment` accepts an `environment_spec` with `schema_version: 1`. Every supported component's authored serialized fields are catalogued as snake-case `semantic_controls`; this includes nested weather settings, curves, collections, references, HDRP override values, and Project Storm storm/profile data. Prefer a semantic such as `coverage`, `visibility_distance`, or `clear_weather.fog_visibility_distance`, never a raw serialized field name. Setup operations can create/clone supported assets and components before their exact identities are used in a later spec.
+
+## Equipment authoring
+
+The `equipment` group includes `get_equipment_catalog` and `manage_equipment` for Project Storm equipment families, mount-specific variants, optimized Prop composition, family icons, legacy or handheld modules, and performance parts. These package handlers discover Project Storm types through reflection and serialized properties, so the MCP package can be installed without adding scripts, assembly definitions, or adapters beneath the game's `Assets/` folder.
+
+Use `get_equipment_catalog` to inspect only the approved `Assets/Prefabs/Props` source catalogue, existing equipment, and explicit registry candidates. `manage_equipment` accepts an `equipment_spec` with `schema_version: 1`; create, compose, update, thumbnail, deprecate, and repair actions require Project Automation approval and `execute: true`. It never uses `Assets/Cargo/Meshes` as a composition source, and it will not infer a registry prefab or silently purge content referenced by player saves.
+
+A visual loop is agent-orchestrated: begin a goal, preview bounded changes, capture with the existing camera tooling, have the calling AI evaluate the returned image and send an optional assessment, then commit, restore, or cancel. Goal storage records the baseline, Undo staging, iteration cap, assessment journal, plateau/limit outcome, and accepted candidate; it does not store image bytes or run a second vision model.
+
+Persistent HDRP changes must resolve to the authored `Volume.sharedProfile` asset and its component subassets. The tooling rejects a scene `Volume.profile` clone as an authored target. `TornadoCloudVolume` is intentionally excluded; Project Storm storm/tornado pattern and VFX controls remain discoverable.
+
+---

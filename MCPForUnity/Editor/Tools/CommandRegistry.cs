@@ -149,7 +149,7 @@ namespace MCPForUnity.Editor.Tools
             {
                 try
                 {
-                    string cmd = Environment.CommandLine ?? string.Empty;
+                    string cmd = System.Environment.CommandLine ?? string.Empty;
                     if (cmd.IndexOf("-importWorker", StringComparison.OrdinalIgnoreCase) >= 0
                         || cmd.IndexOf("AssetImportWorker", StringComparison.OrdinalIgnoreCase) >= 0)
                     {

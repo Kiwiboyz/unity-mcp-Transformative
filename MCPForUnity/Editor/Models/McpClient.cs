@@ -37,7 +37,7 @@ namespace MCPForUnity.Editor.Models
                 McpStatus.CommunicationError => "Communication Error",
                 McpStatus.NoResponse => "No Response",
                 McpStatus.UnsupportedOS => "Unsupported OS",
-                McpStatus.MissingConfig => "Missing MCPForUnity Config",
+                McpStatus.MissingConfig => "Missing Transformative MCP configuration",
                 McpStatus.Error => configStatus?.StartsWith("Error:") == true ? configStatus : "Error",
                 McpStatus.VersionMismatch => "Version Mismatch",
                 _ => "Unknown",
