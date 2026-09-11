@@ -33,6 +33,8 @@ from utils.module_discovery import discover_modules
 READ_ONLY = {
     "debug_request_context",
     "get_environment_catalog",
+    "get_tornado_catalog",
+    "get_storm_wind_catalog",
     "find_in_file",
     "get_equipment_catalog",
     "get_modern_ui_catalog",
