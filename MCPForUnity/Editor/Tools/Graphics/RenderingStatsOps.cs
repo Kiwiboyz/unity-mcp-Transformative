@@ -14,6 +14,17 @@ namespace MCPForUnity.Editor.Tools.Graphics
 {
     internal static class RenderingStatsOps
     {
+        private static readonly Dictionary<string, ProfilerRecorder> Recorders = new Dictionary<string, ProfilerRecorder>();
+        static RenderingStatsOps()
+        {
+            AssemblyReloadEvents.beforeAssemblyReload += DisposeRecorders;
+            EditorApplication.quitting += DisposeRecorders;
+        }
+        private static void DisposeRecorders()
+        {
+            foreach (var recorder in Recorders.Values) recorder.Dispose();
+            Recorders.Clear();
+        }
         private static readonly (string counterName, string jsonKey)[] COUNTER_MAP = new[]
         {
             ("Draw Calls Count", "draw_calls"),
@@ -43,8 +54,16 @@ namespace MCPForUnity.Editor.Tools.Graphics
 
             foreach (var (counterName, jsonKey) in COUNTER_MAP)
             {
-                using var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, counterName);
-                stats[jsonKey] = recorder.Valid ? recorder.CurrentValue : 0;
+                if (!Recorders.TryGetValue(counterName, out var recorder))
+                {
+                    recorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, counterName, 1);
+                    Recorders[counterName] = recorder;
+                }
+                stats[jsonKey] = !recorder.Valid
+                    ? (object)Profiler.DiagnosticCommon.Unavailable("Counter is unsupported by this Unity version, graphics API or profiler target.")
+                    : recorder.Count == 0
+                        ? Profiler.DiagnosticCommon.Unavailable("Recorder has no completed frame sample yet; run frames and query again.")
+                        : new JObject { ["status"] = "available", ["value"] = recorder.LastValue, ["counter"] = counterName, ["unit"] = recorder.UnitType.ToString(), ["sample"] = "last_completed_frame" };
             }
 
             return new

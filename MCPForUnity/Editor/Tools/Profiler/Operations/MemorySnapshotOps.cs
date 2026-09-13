@@ -98,11 +98,11 @@ namespace MCPForUnity.Editor.Tools.Profiler
                 var takeMethodParams = takeMethod.GetParameters();
                 int paramCount = takeMethodParams.Length;
                 if (paramCount == 4 && takeMethodParams[3].ParameterType == captureFlagsType)
-                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, null, Enum.ToObject(captureFlagsType, 0) });
+                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, null, Enum.ToObject(captureFlagsType, 3) });
                 else if (paramCount == 3 && takeMethodParams[2].ParameterType == captureFlagsType)
-                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, Enum.ToObject(captureFlagsType, 0) });
+                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, Enum.ToObject(captureFlagsType, 3) });
                 else if (paramCount == 4 && takeMethodParams[3].ParameterType == typeof(uint))
-                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, null, 0u });
+                    takeMethod.Invoke(null, new object[] { snapshotPath, callback, null, 3u });
                 else if (paramCount == 2)
                     takeMethod.Invoke(null, new object[] { snapshotPath, callback });
                 else
@@ -180,33 +180,8 @@ namespace MCPForUnity.Editor.Tools.Profiler
             if (!File.Exists(pathB))
                 return new ErrorResponse($"Snapshot file not found: {pathB}");
 
-            var fiA = new FileInfo(pathA);
-            var fiB = new FileInfo(pathB);
-
-            return new SuccessResponse("Snapshot comparison (file-level metadata).", new
-            {
-                snapshot_a = new
-                {
-                    path = fiA.FullName,
-                    size_bytes = fiA.Length,
-                    size_mb = Math.Round(fiA.Length / (1024.0 * 1024.0), 2),
-                    created = fiA.CreationTimeUtc.ToString("o"),
-                },
-                snapshot_b = new
-                {
-                    path = fiB.FullName,
-                    size_bytes = fiB.Length,
-                    size_mb = Math.Round(fiB.Length / (1024.0 * 1024.0), 2),
-                    created = fiB.CreationTimeUtc.ToString("o"),
-                },
-                delta = new
-                {
-                    size_delta_bytes = fiB.Length - fiA.Length,
-                    size_delta_mb = Math.Round((fiB.Length - fiA.Length) / (1024.0 * 1024.0), 2),
-                    time_delta_seconds = (fiB.CreationTimeUtc - fiA.CreationTimeUtc).TotalSeconds,
-                },
-                note = "For detailed object-level comparison, open both snapshots in the Memory Profiler window.",
-            });
+            try { return new SuccessResponse("Object-level snapshot comparison.", SnapshotAnalysis.Compare(pathA, pathB, @params)); }
+            catch (Exception ex) { return new ErrorResponse("Object comparison unavailable: " + ex.GetBaseException().Message + ". Requires the compatible Memory Profiler 1.1 reader; no file-size comparison was substituted."); }
         }
 
         private static ErrorResponse PackageMissingError()
