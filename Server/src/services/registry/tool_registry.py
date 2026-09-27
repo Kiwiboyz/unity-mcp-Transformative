@@ -27,6 +27,7 @@ TOOL_GROUPS: dict[str, str] = {
     "profiling": "Unity Profiler session control, counters, memory snapshots & Frame Debugger",
     "asset_gen": "AI asset generation – 3D model gen/import, 2D image gen & audio gen (bring-your-own-key)",
     "equipment": "Project Storm equipment-family, prop composition, and performance-part authoring",
+    "road_authoring": "Project Storm RoadBuilder catalog, road, decoration and parking authoring",
 }
 
 DEFAULT_ENABLED_GROUPS: set[str] = {"core"}

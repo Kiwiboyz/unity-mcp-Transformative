@@ -375,6 +375,21 @@ namespace MCPForUnity.Editor.Services.Transport
                     }
                 }
 
+                var roadFence = RoadAuthoringDispatchFence.Check(command.type, parameters, toolMeta, resourceMeta != null);
+                if (!roadFence.Allowed)
+                {
+                    pending.TrySetResult(JsonConvert.SerializeObject(new
+                    {
+                        status = "error",
+                        code = roadFence.Code,
+                        error = roadFence.Message,
+                        activeOperationId = roadFence.ActiveOperationId,
+                        command = command.type
+                    }));
+                    RemovePending(id, pending);
+                    return;
+                }
+
                 var logType = resourceMeta != null ? "resource" : toolMeta != null ? "tool" : "unknown";
                 var sw = McpLogRecord.IsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
                 var result = CommandRegistry.ExecuteCommand(command.type, parameters, pending.CompletionSource);

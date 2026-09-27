@@ -51,6 +51,27 @@ namespace MCPForUnity.Editor.Tools
                     $"A maximum of {maxCommands} commands are allowed per batch (configurable in MCP Tools window, hard max {AbsoluteMaxCommandsPerBatch}).");
             }
 
+            // Preflight an already staged scene before executing any batch entry.
+            // The per-entry check below remains necessary because an earlier entry
+            // can stage, commit or cancel a goal and change the fence state.
+            foreach (var entry in commandsToken)
+            {
+                if (entry is not JObject candidate || candidate["tool"]?.Type != JTokenType.String)
+                    continue;
+                var name = candidate.Value<string>("tool");
+                var candidateParams = NormalizeParameterKeys(candidate["params"] as JObject ?? new JObject());
+                var candidateTool = MCPServiceLocator.ToolDiscovery.GetToolMetadata(name);
+                var candidateResource = MCPServiceLocator.ResourceDiscovery.GetResourceMetadata(name);
+                var preflight = RoadAuthoringDispatchFence.Check(name, candidateParams, candidateTool, candidateResource != null);
+                if (!preflight.Allowed)
+                    return new ErrorResponse(preflight.Code, new
+                    {
+                        message = preflight.Message,
+                        activeOperationId = preflight.ActiveOperationId,
+                        blockedTool = name
+                    });
+            }
+
             bool failFast = @params.Value<bool?>("failFast") ?? false;
             bool parallelRequested = @params.Value<bool?>("parallel") ?? false;
             int? maxParallel = @params.Value<int?>("maxParallelism");
@@ -141,6 +162,26 @@ namespace MCPForUnity.Editor.Tools
                         if (failFast) break;
                         continue;
                     }
+                }
+
+                var resourceMeta = MCPServiceLocator.ResourceDiscovery.GetResourceMetadata(toolName);
+                var roadFence = RoadAuthoringDispatchFence.Check(toolName, commandParams, toolMeta, resourceMeta != null);
+                if (!roadFence.Allowed)
+                {
+                    invocationFailureCount++;
+                    anyCommandFailed = true;
+                    commandResults.Add(new
+                    {
+                        tool = toolName,
+                        callSucceeded = false,
+                        result = new ErrorResponse(roadFence.Code, new
+                        {
+                            message = roadFence.Message,
+                            activeOperationId = roadFence.ActiveOperationId
+                        })
+                    });
+                    if (failFast) break;
+                    continue;
                 }
 
                 try

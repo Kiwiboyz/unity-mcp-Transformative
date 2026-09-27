@@ -38,6 +38,7 @@ READ_ONLY = {
     "find_in_file",
     "get_equipment_catalog",
     "get_modern_ui_catalog",
+    "get_road_authoring",
     "get_sha",
     "get_test_job",
     "manage_script_capabilities",
