@@ -10,15 +10,20 @@ from typing import Any
 
 INSPECTION_ACTIONS = frozenset({
     "status", "catalog", "network", "selection", "validate", "spatial_query",
-    "profile_candidates", "goal_status", "receipt", "diagnostics",
+    "profile_candidates", "goal_status", "receipt", "diagnostics", "drawn_areas",
 })
 MUTATION_ACTIONS = frozenset({
     "preview_goal", "stage_goal", "commit_goal", "cancel_goal", "restore_goal",
 })
 GOAL_INTENTS = frozenset({
     "asset", "profile", "road_path", "reprofile", "decoration", "parking_lot",
-    "adopt", "bake", "repair_helpers",
+    "adopt", "bake", "repair_helpers", "parking_draw", "plaza",
 })
+# Areas drawn with the Road Builder's draw tools: scene objects that need no adopted scene or manifest.
+DRAWN_AREA_INTENTS = frozenset({"parking_draw", "plaza"})
+MAX_OUTLINE_VERTICES = 64
+MAX_DRAWN_CONNECTIONS = 8
+MAX_PLAZA_AREAS = 64
 _HEX32 = re.compile(r"^[a-fA-F0-9]{32}$")
 _HEX64 = re.compile(r"^[a-fA-F0-9]{64}$")
 MAX_REVISION_HASHES = 64
@@ -253,6 +258,10 @@ def _goal_spec(intent: str, spec: dict[str, Any]) -> None:
     elif intent == "repair_helpers":
         _known_fields(spec, {"helperGlobalObjectIds"}, set())
         _ids(spec["helperGlobalObjectIds"])
+    elif intent == "parking_draw":
+        _parking_draw_spec(spec)
+    elif intent == "plaza":
+        _plaza_spec(spec)
 
 
 def _point(value: Any) -> None:
@@ -579,6 +588,156 @@ def _parking_spec(spec: dict[str, Any]) -> None:
         raise RoadAuthoringContractError("Rows and entrances must reference an exact aisleId in the lot.")
 
 
+def _bool_fields(spec: dict[str, Any], names: tuple[str, ...]) -> None:
+    for name in names:
+        if name in spec and not isinstance(spec[name], bool):
+            raise RoadAuthoringContractError(f"{name} must be boolean.")
+
+
+def _bounded_name(spec: dict[str, Any], name: str) -> None:
+    if name in spec and (not isinstance(spec[name], str) or not 1 <= len(spec[name]) <= 128):
+        raise RoadAuthoringContractError(f"{name} must be a bounded nonempty string.")
+
+
+def _outline(value: Any) -> None:
+    """{vertices:[{x,y,z}...]} or {rectangle:{center:{x,y,z}, size:{x,z}, rotationDeg?}}."""
+    if not isinstance(value, dict) or len(value) != 1:
+        raise RoadAuthoringContractError("outline requires exactly vertices or rectangle.")
+    if "vertices" in value:
+        vertices = value["vertices"]
+        if not isinstance(vertices, list) or not 3 <= len(vertices) <= MAX_OUTLINE_VERTICES:
+            raise RoadAuthoringContractError("outline vertices must number 3–64.")
+        for point in vertices:
+            _point(point)
+    elif "rectangle" in value:
+        rectangle = value["rectangle"]
+        if not isinstance(rectangle, dict):
+            raise RoadAuthoringContractError("outline rectangle must be an object.")
+        _known_fields(rectangle, {"center", "size"}, {"rotationDeg"})
+        _point(rectangle["center"])
+        size = rectangle["size"]
+        if not isinstance(size, dict) or set(size) != {"x", "z"}:
+            raise RoadAuthoringContractError("outline rectangle size requires x and z.")
+        _number(size["x"], positive=True, maximum=2000)
+        _number(size["z"], positive=True, maximum=2000)
+        if "rotationDeg" in rectangle:
+            _number(rectangle["rotationDeg"], maximum=3600)
+    else:
+        raise RoadAuthoringContractError("outline requires vertices or rectangle.")
+
+
+def _parking_draw_spec(spec: dict[str, Any]) -> None:
+    """A Parking tool lot: draw one from an outline, or change one by lotId."""
+    _known_fields(spec, set(), {"outline", "lotId", "name", "settings", "snapToRoads", "followRoadSlope",
+                                "levelGround", "drivewayRoad", "connect", "disconnect", "delete"})
+    if ("outline" in spec) == ("lotId" in spec):
+        raise RoadAuthoringContractError("parking_draw requires exactly one of outline (new lot) or lotId (existing lot).")
+    if "outline" in spec:
+        _outline(spec["outline"])
+        if "disconnect" in spec or "delete" in spec:
+            raise RoadAuthoringContractError("disconnect and delete need lotId.")
+    else:
+        _id(spec["lotId"])
+    _bounded_name(spec, "name")
+    _bounded_name(spec, "drivewayRoad")
+    _bool_fields(spec, ("snapToRoads", "followRoadSlope", "levelGround", "delete"))
+    if spec.get("delete") is True and set(spec) - {"lotId", "delete"}:
+        raise RoadAuthoringContractError("delete cannot be combined with other changes.")
+    if "settings" in spec:
+        settings = spec["settings"]
+        if not isinstance(settings, dict):
+            raise RoadAuthoringContractError("settings must be an object.")
+        _known_fields(settings, set(), {"stallWidthMeters", "stallLengthMeters", "angleDegrees", "aisleWidthMeters",
+                                        "accessiblePairs", "footpath", "footpathWidthMeters", "hatchEntrances"})
+        for key, minimum, maximum in (("stallWidthMeters", 2, 4), ("stallLengthMeters", 4, 8),
+                                      ("aisleWidthMeters", 3.5, 9), ("footpathWidthMeters", 0.5, 10)):
+            if key in settings:
+                _number(settings[key])
+                if not minimum <= settings[key] <= maximum:
+                    raise RoadAuthoringContractError(f"settings {key} must be {minimum}–{maximum}.")
+        if "angleDegrees" in settings and settings["angleDegrees"] not in (0, 45, 60, 90):
+            raise RoadAuthoringContractError("settings angleDegrees must be 0 (parallel), 45, 60 or 90.")
+        if "accessiblePairs" in settings and (not isinstance(settings["accessiblePairs"], int) or
+                                              isinstance(settings["accessiblePairs"], bool) or
+                                              not 0 <= settings["accessiblePairs"] <= 6):
+            raise RoadAuthoringContractError("settings accessiblePairs must be 0–6.")
+        if "footpath" in settings and settings["footpath"] not in ("none", "pavement", "asphalt", "grass"):
+            raise RoadAuthoringContractError("settings footpath must be none, pavement, asphalt or grass.")
+        _bool_fields(settings, ("hatchEntrances",))
+    if "connect" in spec:
+        connect = spec["connect"]
+        if not isinstance(connect, list) or not 1 <= len(connect) <= MAX_DRAWN_CONNECTIONS:
+            raise RoadAuthoringContractError("connect must list 1–8 connections.")
+        for item in connect:
+            if not isinstance(item, dict):
+                raise RoadAuthoringContractError("Each connection must be an object.")
+            if "suggestion" in item:
+                _known_fields(item, {"suggestion"}, set())
+                if not isinstance(item["suggestion"], int) or isinstance(item["suggestion"], bool) or not 0 <= item["suggestion"] < 256:
+                    raise RoadAuthoringContractError("Connection suggestion must be an index from drawn_areas or a preview.")
+            else:
+                _known_fields(item, {"roadPoint", "lotPoint"}, set())
+                _point(item["roadPoint"])
+                _point(item["lotPoint"])
+    if "disconnect" in spec:
+        disconnect = spec["disconnect"]
+        if (not isinstance(disconnect, list) or not 1 <= len(disconnect) <= MAX_DRAWN_CONNECTIONS or
+                any(not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < 256 for index in disconnect) or
+                len(disconnect) != len(set(disconnect))):
+            raise RoadAuthoringContractError("disconnect must list 1–8 unique entrance indices from drawn_areas.")
+
+
+def _plaza_area(area: Any) -> None:
+    if not isinstance(area, dict):
+        raise RoadAuthoringContractError("Plaza areas must be objects.")
+    _known_fields(area, {"surface", "shape", "points"}, {"widthMeters", "raiseMeters", "name"})
+    _bounded_name(area, "surface")
+    _bounded_name(area, "name")
+    if area["shape"] not in ("polygon", "path"):
+        raise RoadAuthoringContractError("Plaza area shape must be polygon or path.")
+    minimum = 2 if area["shape"] == "path" else 3
+    points = area["points"]
+    if not isinstance(points, list) or not minimum <= len(points) <= MAX_OUTLINE_VERTICES:
+        raise RoadAuthoringContractError("Plaza area points must number 3–64 (a path 2–64).")
+    for point in points:
+        _point(point)
+    if "widthMeters" in area:
+        _number(area["widthMeters"], positive=True, maximum=20)
+    if "raiseMeters" in area:
+        _number(area["raiseMeters"], maximum=1)
+        if area["raiseMeters"] < 0:
+            raise RoadAuthoringContractError("Plaza area raiseMeters must be 0–1 (omit it for automatic).")
+
+
+def _plaza_spec(spec: dict[str, Any]) -> None:
+    """A Plaza tool plaza: draw one from an outline (with areas), or change one by plazaId."""
+    _known_fields(spec, set(), {"outline", "plazaId", "name", "surface", "snapToRoads", "followRoadSlope",
+                                "levelGround", "footpathAprons", "areas", "addAreas", "removeAreas", "delete"})
+    if ("outline" in spec) == ("plazaId" in spec):
+        raise RoadAuthoringContractError("plaza requires exactly one of outline (new plaza) or plazaId (existing plaza).")
+    if "outline" in spec:
+        _outline(spec["outline"])
+        if {"addAreas", "removeAreas", "delete"} & set(spec):
+            raise RoadAuthoringContractError("addAreas, removeAreas and delete need plazaId (a new plaza takes areas).")
+    else:
+        _id(spec["plazaId"])
+        if "areas" in spec:
+            raise RoadAuthoringContractError("An existing plaza takes addAreas, not areas.")
+    _bounded_name(spec, "name")
+    _bounded_name(spec, "surface")
+    _bool_fields(spec, ("snapToRoads", "followRoadSlope", "levelGround", "footpathAprons", "delete"))
+    if spec.get("delete") is True and set(spec) - {"plazaId", "delete"}:
+        raise RoadAuthoringContractError("delete cannot be combined with other changes.")
+    for key in ("areas", "addAreas"):
+        if key in spec:
+            if not isinstance(spec[key], list) or not 1 <= len(spec[key]) <= MAX_PLAZA_AREAS:
+                raise RoadAuthoringContractError(f"{key} must list 1–64 areas.")
+            for area in spec[key]:
+                _plaza_area(area)
+    if "removeAreas" in spec:
+        _ids(spec["removeAreas"])
+
+
 def _inspection_payload(action: str, payload: dict[str, Any]) -> None:
     if action in {"status", "selection", "goal_status", "receipt"}:
         _known_fields(payload, set(), set())
@@ -616,6 +775,16 @@ def _inspection_payload(action: str, payload: dict[str, Any]) -> None:
         _known_fields(payload, set(), {"name", "tags", "lanes", "limit"})
         if "lanes" in payload and (not isinstance(payload["lanes"], list) or len(payload["lanes"]) > 32):
             raise RoadAuthoringContractError("Candidate lanes must contain at most 32 entries.")
+    elif action == "drawn_areas":
+        _known_fields(payload, set(), {"kind", "center", "radiusMeters", "limit"})
+        if "kind" in payload and payload["kind"] not in ("parking_draw", "plaza", "both"):
+            raise RoadAuthoringContractError("drawn_areas kind must be parking_draw, plaza or both.")
+        if "center" in payload:
+            _point(payload["center"])
+        if "radiusMeters" in payload:
+            if "center" not in payload:
+                raise RoadAuthoringContractError("drawn_areas radiusMeters needs center.")
+            _number(payload["radiusMeters"], positive=True, maximum=10**6)
     elif action == "diagnostics":
         _known_fields(payload, set(), {"cursor", "limit", "severity"})
         if "severity" in payload and payload["severity"] not in ("error", "warning", "all"):
@@ -714,11 +883,12 @@ def build_request(
         if not payload or set(payload) != {"intent", "spec"} or not isinstance(payload.get("intent"), str) or payload["intent"] not in GOAL_INTENTS or not isinstance(payload.get("spec"), dict):
             raise RoadAuthoringContractError("preview_goal and stage_goal require a known intent and typed spec object.")
         _goal_spec(payload["intent"], payload["spec"])
-        if payload["intent"] in {"road_path", "reprofile", "decoration", "parking_lot", "adopt", "bake", "repair_helpers"} and scene_guid is None:
+        if payload["intent"] in {"road_path", "reprofile", "decoration", "parking_lot", "adopt", "bake", "repair_helpers",
+                                 *DRAWN_AREA_INTENTS} and scene_guid is None:
             raise RoadAuthoringContractError("Scene goals require scene_guid from inspection.")
         if payload["intent"] in {"road_path", "reprofile", "decoration", "parking_lot", "bake"} and expected_manifest_hash is None:
             raise RoadAuthoringContractError("Managed scene goals require expected_manifest_hash from inspection.")
-    if action in {"network", "selection", "spatial_query"} and scene_guid is None:
+    if action in {"network", "selection", "spatial_query", "drawn_areas"} and scene_guid is None:
         raise RoadAuthoringContractError(f"{action} requires scene_guid.")
     if action in {"goal_status", "receipt"} and operation_id is None:
         raise RoadAuthoringContractError(f"{action} requires operation_id.")

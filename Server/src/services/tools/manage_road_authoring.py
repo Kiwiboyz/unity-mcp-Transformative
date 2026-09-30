@@ -13,7 +13,16 @@ from services.tools.road_authoring_contract import RoadAuthoringContractError, b
 
 @mcp_for_unity_tool(
     group="road_authoring",
-    description="Preview, exactly stage, commit, cancel or restore a typed Project Storm RoadBuilder goal. Use a stable UUID, exact scene IDs and hashes; after an uncertain response inspect its receipt before retrying. Requires Unity Project Automation approval.",
+    description=("Preview, exactly stage, commit, cancel or restore a typed Project Storm RoadBuilder goal. Use a stable UUID, "
+                 "exact scene IDs and hashes; after an uncertain response inspect its receipt before retrying. Requires Unity "
+                 "Project Automation approval. Drawn areas (no adopted scene or manifest needed, only scene_guid): "
+                 "intent parking_draw draws a car park from an outline ({vertices:[{x,y,z}]} or {rectangle:{center,size:{x,z},"
+                 "rotationDeg}}) that lays itself out, snaps to road footpaths and follows their slope; connect it with "
+                 "connect:[{suggestion:i}] (indices from get_road_authoring drawn_areas or a preview) or change one by lotId "
+                 "(settings, connect, disconnect:[entranceIndex], delete). Intent plaza draws the ground under buildings/yards "
+                 "(surface, areas:[{surface, shape:polygon|path, points, widthMeters?}]) or changes one by plazaId (addAreas, "
+                 "removeAreas, surface, delete). preview_goal is a dry run that changes nothing; stage_goal returns the "
+                 "candidate_hash to commit."),
     annotations=ToolAnnotations(title="Manage Road Authoring", readOnlyHint=False, destructiveHint=True),
 )
 async def manage_road_authoring(
@@ -24,7 +33,7 @@ async def manage_road_authoring(
     expected_manifest_hash: Annotated[str | None, "Exact SHA-256 manifest hash observed during inspection."] = None,
     expected_revision_hashes: Annotated[list[dict[str, str]] | None, "Sorted unique {profileRevisionId, closureHash} entries, up to 64."] = None,
     candidate_hash: Annotated[str | None, "Exact SHA-256 candidate hash returned by stage_goal; required to commit."] = None,
-    payload: Annotated[dict[str, Any] | None, "For preview/stage: {intent: asset|profile|road_path|reprofile|decoration|parking_lot|adopt|bake|repair_helpers, spec: typed goal object}. Other actions use action-specific fields."] = None,
+    payload: Annotated[dict[str, Any] | None, "For preview/stage: {intent: asset|profile|road_path|reprofile|decoration|parking_lot|adopt|bake|repair_helpers|parking_draw|plaza, spec: typed goal object}. Other actions use action-specific fields."] = None,
 ) -> dict[str, Any]:
     try:
         request = build_request(

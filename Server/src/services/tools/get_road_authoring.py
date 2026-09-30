@@ -14,12 +14,15 @@ from transport.unity_transport import send_with_unity_instance
 
 @mcp_for_unity_tool(
     group="road_authoring",
-    description="Inspect the opt-in Project Storm RoadBuilder catalog, network, selection, spatial anchors, validation, goal receipts and limits. Exact IDs and hashes are required for authoring.",
+    description=("Inspect the opt-in Project Storm RoadBuilder catalog, network, selection, spatial anchors, validation, goal "
+                 "receipts and limits. Exact IDs and hashes are required for authoring. drawn_areas (scene_guid; payload "
+                 "{kind?: parking_draw|plaza|both, center?, radiusMeters?, limit?}) lists the car parks and plazas drawn with "
+                 "the Road Builder's draw tools: outlines, sides, bays, entrances, suggested entrances, areas and surfaces."),
     annotations=ToolAnnotations(title="Get Road Authoring", readOnlyHint=True, destructiveHint=False),
 )
 async def get_road_authoring(
     ctx: Context,
-    action: Annotated[Literal["status", "catalog", "network", "selection", "validate", "spatial_query", "profile_candidates", "goal_status", "receipt", "diagnostics"], "Read-only RoadBuilder action."],
+    action: Annotated[Literal["status", "catalog", "network", "selection", "validate", "spatial_query", "profile_candidates", "goal_status", "receipt", "diagnostics", "drawn_areas"], "Read-only RoadBuilder action."],
     scene_guid: Annotated[str | None, "Exact 32-character Unity scene asset GUID for scene queries."] = None,
     operation_id: Annotated[str | None, "Stable UUID for goal_status or receipt lookup."] = None,
     expected_manifest_hash: Annotated[str | None, "Optional exact SHA-256 manifest version to validate."] = None,

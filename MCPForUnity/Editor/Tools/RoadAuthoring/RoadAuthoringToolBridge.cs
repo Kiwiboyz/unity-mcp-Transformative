@@ -18,7 +18,7 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
         private static readonly string[] InspectionActions =
         {
             "status", "catalog", "network", "selection", "validate", "spatial_query",
-            "profile_candidates", "goal_status", "receipt", "diagnostics"
+            "profile_candidates", "goal_status", "receipt", "diagnostics", "drawn_areas"
         };
         private static readonly string[] MutationActions =
         {
@@ -27,8 +27,10 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
         private static readonly string[] GoalIntents =
         {
             "asset", "profile", "road_path", "reprofile", "decoration", "parking_lot",
-            "adopt", "bake", "repair_helpers"
+            "adopt", "bake", "repair_helpers", "parking_draw", "plaza"
         };
+        // Areas drawn with the Road Builder's draw tools: scene objects needing no adopted scene or manifest.
+        private static readonly string[] DrawnAreaIntents = { "parking_draw", "plaza" };
         private static readonly string[] RequestFields =
         {
             "schemaVersion", "operationId", "sceneGuid", "action", "expectedManifestHash",
@@ -36,7 +38,7 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
         };
         private static readonly string[] ResponseStatuses =
         {
-            "ok", "draft", "staged", "committed", "canceled", "undone",
+            "ok", "draft", "staged", "previewed", "committed", "canceled", "undone",
             "rejected", "dirty", "conflict", "error"
         };
 
@@ -77,7 +79,8 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
                 return new ErrorResponse("road_candidate_hash_required", "Commit requires the exact staged candidateHash.");
             if ((action == "goal_status" || action == "receipt") && operationId == null)
                 return new ErrorResponse("road_operation_id_required", "Goal status and receipt inspection require operationId.");
-            if ((action == "network" || action == "selection" || action == "spatial_query") && sceneGuid == null)
+            if ((action == "network" || action == "selection" || action == "spatial_query" || action == "drawn_areas") &&
+                sceneGuid == null)
                 return new ErrorResponse("road_scene_id_required", "Scene inspection requires sceneGuid.");
             if (parameters["expectedRevisionHashes"] is JToken hashes && hashes.Type != JTokenType.Null)
             {
@@ -110,7 +113,7 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
                 if (goalSpecError != null)
                     return new ErrorResponse("road_invalid_goal_spec", goalSpecError);
                 if (new[] { "road_path", "reprofile", "decoration", "parking_lot", "adopt", "bake", "repair_helpers" }
-                    .Contains(intent, StringComparer.Ordinal) && sceneGuid == null)
+                    .Concat(DrawnAreaIntents).Contains(intent, StringComparer.Ordinal) && sceneGuid == null)
                     return new ErrorResponse("road_scene_id_required", "Scene goals require sceneGuid from inspection.");
                 if (new[] { "road_path", "reprofile", "decoration", "parking_lot", "bake" }
                     .Contains(intent, StringComparer.Ordinal) && manifestHash == null)
@@ -265,6 +268,7 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
                 case "spatial_query": optional = new[] { "kind", "modes", "limit" }; break;
                 case "profile_candidates": optional = new[] { "name", "tags", "lanes", "limit" }; break;
                 case "diagnostics": optional = new[] { "cursor", "limit", "severity" }; break;
+                case "drawn_areas": optional = new[] { "kind", "center", "radiusMeters", "limit" }; break;
                 default: return "Unsupported inspection action.";
             }
             string[] required = action == "validate" ? new[] { "scope" } :
@@ -310,6 +314,18 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
             if (action == "profile_candidates" && payload["lanes"] != null &&
                 (payload["lanes"] is not JArray lanes || lanes.Count > 32))
                 return "profile_candidates lanes must contain at most 32 entries.";
+            if (action == "drawn_areas")
+            {
+                if (payload["kind"] != null &&
+                    (payload["kind"].Type != JTokenType.String ||
+                     !new[] { "parking_draw", "plaza", "both" }.Contains((string)payload["kind"], StringComparer.Ordinal)))
+                    return "drawn_areas kind must be parking_draw, plaza or both.";
+                if (payload["center"] != null && !Point(payload["center"]))
+                    return "drawn_areas center must be a finite point.";
+                if (payload["radiusMeters"] != null &&
+                    (payload["center"] == null || !NumberRange(payload["radiusMeters"], 0, 1000000d, true)))
+                    return "drawn_areas radiusMeters needs center and must be positive.";
+            }
             if (action == "diagnostics" && payload["severity"] != null &&
                 (payload["severity"].Type != JTokenType.String ||
                  !new[] { "error", "warning", "all" }.Contains((string)payload["severity"], StringComparer.Ordinal)))
@@ -513,9 +529,116 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
                     !IdList(spec["helperGlobalObjectIds"]))
                     return "repair_helpers requires exact helperGlobalObjectIds.";
             }
+            else if (intent == "parking_draw" || intent == "plaza")
+                return ValidateDrawnAreaSpec(intent, spec);
             // Asset, profile, adoption and parking semantics are validated by the
             // project bridge after the portable wire shape has been checked here.
             return null;
+        }
+
+        // Wire shape of the drawn-area goals (matches the server contract); the project bridge checks meaning
+        // (surfaces, lot/plaza IDs, suggestion indices) against the scene.
+        private static string ValidateDrawnAreaSpec(string intent, JObject spec)
+        {
+            bool parking = intent == "parking_draw";
+            string target = parking ? "lotId" : "plazaId";
+            var optional = parking
+                ? new[] { "outline", "lotId", "name", "settings", "snapToRoads", "followRoadSlope", "levelGround",
+                          "drivewayRoad", "connect", "disconnect", "delete" }
+                : new[] { "outline", "plazaId", "name", "surface", "snapToRoads", "followRoadSlope", "levelGround",
+                          "footpathAprons", "areas", "addAreas", "removeAreas", "delete" };
+            if (!FieldsMatch(spec, Array.Empty<string>(), optional))
+                return intent + " spec has unknown fields.";
+            if ((spec["outline"] == null) == (spec[target] == null))
+                return intent + " requires exactly one of outline (new) or " + target + " (existing).";
+            if (spec["outline"] != null && !Outline(spec["outline"]))
+                return "outline requires 3–64 vertices or a rectangle {center, size:{x,z}, rotationDeg?}.";
+            if (spec[target] != null && !BoundedId(spec[target]))
+                return target + " must be a bounded exact ID.";
+            foreach (string name in new[] { "name", "drivewayRoad", "surface" })
+                if (spec[name] != null && !BoundedText(spec[name], 128))
+                    return name + " must be a bounded nonempty string.";
+            foreach (string name in new[] { "snapToRoads", "followRoadSlope", "levelGround", "footpathAprons", "delete" })
+                if (spec[name] != null && spec[name].Type != JTokenType.Boolean)
+                    return name + " must be boolean.";
+            if (spec["delete"] != null && (bool)spec["delete"] &&
+                spec.Properties().Any(property => property.Name != target && property.Name != "delete"))
+                return "delete cannot be combined with other changes.";
+            if (parking)
+            {
+                if (spec["outline"] != null && (spec["disconnect"] != null || spec["delete"] != null))
+                    return "disconnect and delete need lotId.";
+                if (spec["settings"] != null)
+                {
+                    if (spec["settings"] is not JObject settings ||
+                        !FieldsMatch(settings, Array.Empty<string>(), new[] { "stallWidthMeters", "stallLengthMeters",
+                            "angleDegrees", "aisleWidthMeters", "accessiblePairs", "footpath", "footpathWidthMeters", "hatchEntrances" }) ||
+                        settings["stallWidthMeters"] != null && !NumberRange(settings["stallWidthMeters"], 2, 4) ||
+                        settings["stallLengthMeters"] != null && !NumberRange(settings["stallLengthMeters"], 4, 8) ||
+                        settings["aisleWidthMeters"] != null && !NumberRange(settings["aisleWidthMeters"], 3.5, 9) ||
+                        settings["footpathWidthMeters"] != null && !NumberRange(settings["footpathWidthMeters"], 0.5, 10) ||
+                        settings["accessiblePairs"] != null && !IntegerRange(settings["accessiblePairs"], 0, 6) ||
+                        settings["angleDegrees"] != null && !(IntegerRange(settings["angleDegrees"], 0, 90) &&
+                            new[] { 0, 45, 60, 90 }.Contains(settings["angleDegrees"].Value<int>())) ||
+                        settings["footpath"] != null && !(settings["footpath"].Type == JTokenType.String &&
+                            new[] { "none", "pavement", "asphalt", "grass" }.Contains((string)settings["footpath"], StringComparer.Ordinal)) ||
+                        settings["hatchEntrances"] != null && settings["hatchEntrances"].Type != JTokenType.Boolean)
+                        return "parking_draw settings are out of range or unknown.";
+                }
+                if (spec["connect"] != null &&
+                    (spec["connect"] is not JArray connect || connect.Count < 1 || connect.Count > 8 ||
+                     connect.Any(item => item is not JObject entry ||
+                         !(FieldsMatch(entry, new[] { "suggestion" }, Array.Empty<string>()) && IntegerRange(entry["suggestion"], 0, 255) ||
+                           FieldsMatch(entry, new[] { "roadPoint", "lotPoint" }, Array.Empty<string>()) &&
+                           Point(entry["roadPoint"]) && Point(entry["lotPoint"])))))
+                    return "connect must list 1–8 of {suggestion} or {roadPoint, lotPoint}.";
+                if (spec["disconnect"] != null &&
+                    (spec["disconnect"] is not JArray disconnect || disconnect.Count < 1 || disconnect.Count > 8 ||
+                     disconnect.Any(item => !IntegerRange(item, 0, 255)) ||
+                     disconnect.Select(item => item.Value<int>()).Distinct().Count() != disconnect.Count))
+                    return "disconnect must list 1–8 unique entrance indices.";
+            }
+            else
+            {
+                if (spec["outline"] != null && (spec["addAreas"] != null || spec["removeAreas"] != null || spec["delete"] != null))
+                    return "addAreas, removeAreas and delete need plazaId (a new plaza takes areas).";
+                if (spec["plazaId"] != null && spec["areas"] != null)
+                    return "An existing plaza takes addAreas, not areas.";
+                foreach (string name in new[] { "areas", "addAreas" })
+                    if (spec[name] != null &&
+                        (spec[name] is not JArray areas || areas.Count < 1 || areas.Count > 64 || areas.Any(area => !PlazaArea(area))))
+                        return name + " must list 1–64 areas {surface, shape: polygon|path, points, widthMeters?, raiseMeters?, name?}.";
+                if (spec["removeAreas"] != null && !IdList(spec["removeAreas"]))
+                    return "removeAreas must list exact area IDs.";
+            }
+            return null;
+        }
+
+        private static bool Outline(JToken token)
+        {
+            if (token is not JObject outline || outline.Count != 1) return false;
+            if (outline["vertices"] != null)
+                return outline["vertices"] is JArray vertices && vertices.Count >= 3 && vertices.Count <= 64 && vertices.All(Point);
+            return outline["rectangle"] is JObject rectangle &&
+                   FieldsMatch(rectangle, new[] { "center", "size" }, new[] { "rotationDeg" }) &&
+                   Point(rectangle["center"]) && rectangle["size"] is JObject size &&
+                   FieldsMatch(size, new[] { "x", "z" }, Array.Empty<string>()) &&
+                   NumberRange(size["x"], 0, 2000, true) && NumberRange(size["z"], 0, 2000, true) &&
+                   (rectangle["rotationDeg"] == null || NumberRange(rectangle["rotationDeg"], -3600, 3600));
+        }
+
+        private static bool PlazaArea(JToken token)
+        {
+            if (token is not JObject area ||
+                !FieldsMatch(area, new[] { "surface", "shape", "points" }, new[] { "widthMeters", "raiseMeters", "name" }) ||
+                !BoundedText(area["surface"], 128) || area["name"] != null && !BoundedText(area["name"], 128) ||
+                area["shape"]?.Type != JTokenType.String) return false;
+            string shape = (string)area["shape"];
+            if (shape != "polygon" && shape != "path") return false;
+            return area["points"] is JArray points && points.Count >= (shape == "path" ? 2 : 3) && points.Count <= 64 &&
+                   points.All(Point) &&
+                   (area["widthMeters"] == null || NumberRange(area["widthMeters"], 0, 20, true)) &&
+                   (area["raiseMeters"] == null || NumberRange(area["raiseMeters"], 0, 1));
         }
 
         private static string ValidateParkingSpec(JObject spec)

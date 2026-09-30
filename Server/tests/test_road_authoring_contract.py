@@ -301,3 +301,69 @@ def test_accessible_stall_override_is_typed_and_slot_unique():
     row["overrides"].append(dict(row["overrides"][0]))
     with pytest.raises(RoadAuthoringContractError, match="unique"):
         build_request(**args, payload=goal)
+
+
+def test_drawn_area_goals_need_scene_but_no_manifest():
+    lot = {"intent": "parking_draw", "spec": {
+        "outline": {"rectangle": {"center": {"x": 0, "y": 0, "z": 0}, "size": {"x": 40, "z": 30}, "rotationDeg": 15}},
+        "settings": {"angleDegrees": 60, "footpath": "grass", "accessiblePairs": 2},
+        "connect": [{"suggestion": 0}, {"roadPoint": {"x": 0, "y": 0, "z": -20}, "lotPoint": {"x": 0, "y": 0, "z": -15}}],
+    }}
+    with pytest.raises(RoadAuthoringContractError, match="scene_guid"):
+        build_request(action="stage_goal", mutation=True, operation_id=OPERATION, payload=lot)
+    request = build_request(action="stage_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE, payload=lot)
+    assert request["expectedManifestHash"] is None
+    plaza = {"intent": "plaza", "spec": {
+        "outline": {"vertices": [{"x": 0, "y": 0, "z": 0}, {"x": 20, "y": 0, "z": 0}, {"x": 20, "y": 0, "z": 30}]},
+        "surface": "Lawn",
+        "areas": [{"surface": "Driveway", "shape": "path", "widthMeters": 3.5,
+                   "points": [{"x": 5, "y": 0, "z": 0}, {"x": 5, "y": 0, "z": 15}]}],
+    }}
+    build_request(action="preview_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE, payload=plaza)
+
+
+@pytest.mark.parametrize("intent,spec", [
+    # Exactly one of a new outline or an existing target.
+    ("parking_draw", {}),
+    ("parking_draw", {"lotId": "l1", "outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}}),
+    ("plaza", {"plazaId": "p1", "outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}}),
+    # Outlines are typed and bounded.
+    ("parking_draw", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 2}}),
+    ("parking_draw", {"outline": {"rectangle": {"center": {"x": 0, "y": 0, "z": 0}, "size": {"x": -1, "z": 5}}}}),
+    ("plaza", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 65}}),
+    # Settings and connections are typed.
+    ("parking_draw", {"lotId": "l1", "settings": {"angleDegrees": 30}}),
+    ("parking_draw", {"lotId": "l1", "settings": {"footpath": "gravel"}}),
+    ("parking_draw", {"lotId": "l1", "settings": {"stallWidthMeters": 9}}),
+    ("parking_draw", {"lotId": "l1", "connect": [{"suggestion": 0, "lotPoint": {"x": 0, "y": 0, "z": 0}}]}),
+    ("parking_draw", {"lotId": "l1", "connect": [{"suggestion": 0}] * 9}),
+    ("parking_draw", {"lotId": "l1", "disconnect": [0, 0]}),
+    ("parking_draw", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}, "disconnect": [0]}),
+    ("parking_draw", {"lotId": "l1", "delete": True, "connect": [{"suggestion": 0}]}),
+    # Plaza areas are typed; a new plaza takes areas, an existing one addAreas.
+    ("plaza", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3},
+               "areas": [{"surface": "Lawn", "shape": "circle", "points": [{"x": 0, "y": 0, "z": 0}] * 3}]}),
+    ("plaza", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3},
+               "areas": [{"surface": "Lawn", "shape": "path", "points": [{"x": 0, "y": 0, "z": 0}]}]}),
+    ("plaza", {"plazaId": "p1", "areas": [{"surface": "Lawn", "shape": "polygon",
+                                           "points": [{"x": 0, "y": 0, "z": 0}] * 3}]}),
+    ("plaza", {"plazaId": "p1", "addAreas": [{"surface": "Lawn", "shape": "path", "raiseMeters": -1,
+                                              "points": [{"x": 0, "y": 0, "z": 0}] * 2}]}),
+    ("plaza", {"plazaId": "p1", "delete": True, "surface": "Tiles"}),
+    ("plaza", {"plazaId": "p1", "unknown": 1}),
+])
+def test_drawn_area_specs_are_exact(intent, spec):
+    with pytest.raises(RoadAuthoringContractError):
+        build_request(action="stage_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE,
+                      payload={"intent": intent, "spec": spec})
+
+
+def test_drawn_areas_inspection_is_scene_scoped_and_bounded():
+    request = build_request(action="drawn_areas", mutation=False, scene_guid=SCENE,
+                            payload={"kind": "plaza", "center": {"x": 0, "y": 0, "z": 0}, "radiusMeters": 50, "limit": 10})
+    assert request["action"] == "drawn_areas"
+    with pytest.raises(RoadAuthoringContractError, match="scene_guid"):
+        build_request(action="drawn_areas", mutation=False, payload={})
+    for payload in ({"kind": "roads"}, {"radiusMeters": 5}, {"limit": 101}, {"extra": True}):
+        with pytest.raises(RoadAuthoringContractError):
+            build_request(action="drawn_areas", mutation=False, scene_guid=SCENE, payload=payload)
