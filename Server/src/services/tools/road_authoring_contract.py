@@ -17,13 +17,21 @@ MUTATION_ACTIONS = frozenset({
 })
 GOAL_INTENTS = frozenset({
     "asset", "profile", "road_path", "reprofile", "decoration", "parking_lot",
-    "adopt", "bake", "repair_helpers", "parking_draw", "plaza",
+    "adopt", "bake", "repair_helpers", "parking_draw", "plaza", "farm_field",
 })
 # Areas drawn with the Road Builder's draw tools: scene objects that need no adopted scene or manifest.
-DRAWN_AREA_INTENTS = frozenset({"parking_draw", "plaza"})
+DRAWN_AREA_INTENTS = frozenset({"parking_draw", "plaza", "farm_field"})
 MAX_OUTLINE_VERTICES = 64
 MAX_DRAWN_CONNECTIONS = 8
 MAX_PLAZA_AREAS = 64
+FARM_CROPS = ("CornGreen", "CornDry", "WheatGreen", "WheatGolden", "WheatStubble")
+MAX_FARM_FENCES = 32
+# Farm rules: numeric ranges and on/off flags (the Farm tool's Advanced section).
+_FARM_RULE_RANGES = {
+    "minPlotHectares": (0.25, 200), "maxPlotHectares": (0.5, 500), "headlandFromHectares": (0, 10000),
+    "headlandWidth": (2, 20), "trackWidth": (2, 12),
+}
+_FARM_RULE_FLAGS = ("headland", "tramlines", "paintTerrain")
 _HEX32 = re.compile(r"^[a-fA-F0-9]{32}$")
 _HEX64 = re.compile(r"^[a-fA-F0-9]{64}$")
 MAX_REVISION_HASHES = 64
@@ -262,6 +270,8 @@ def _goal_spec(intent: str, spec: dict[str, Any]) -> None:
         _parking_draw_spec(spec)
     elif intent == "plaza":
         _plaza_spec(spec)
+    elif intent == "farm_field":
+        _farm_field_spec(spec)
 
 
 def _point(value: Any) -> None:
@@ -738,6 +748,72 @@ def _plaza_spec(spec: dict[str, Any]) -> None:
         _ids(spec["removeAreas"])
 
 
+def _farm_fence(fence: Any) -> None:
+    if not isinstance(fence, dict):
+        raise RoadAuthoringContractError("Farm fences must be objects.")
+    if fence.get("aroundFarm") is True:
+        _known_fields(fence, {"aroundFarm"}, set())
+        return
+    _known_fields(fence, {"points"}, {"closed"})
+    _bool_fields(fence, ("closed",))
+    minimum = 3 if fence.get("closed") is True else 2
+    points = fence["points"]
+    if not isinstance(points, list) or not minimum <= len(points) <= MAX_OUTLINE_VERTICES:
+        raise RoadAuthoringContractError("A farm fence needs aroundFarm: true, or 2–64 points (3 when closed).")
+    for point in points:
+        _point(point)
+
+
+def _farm_field_spec(spec: dict[str, Any]) -> None:
+    """A Farm tool farm (one crop; plots, lanes, headland and gates are generated): draw one from an outline, or
+    change one by farmId."""
+    _known_fields(spec, set(), {"outline", "farmId", "name", "crop", "seed", "rules", "fences", "addFences",
+                                "removeFences", "delete"})
+    if ("outline" in spec) == ("farmId" in spec):
+        raise RoadAuthoringContractError("farm_field requires exactly one of outline (new farm) or farmId (existing farm).")
+    if "outline" in spec:
+        _outline(spec["outline"])
+        if {"addFences", "removeFences", "delete"} & set(spec):
+            raise RoadAuthoringContractError("addFences, removeFences and delete need farmId (a new farm takes fences).")
+        if "crop" not in spec:
+            raise RoadAuthoringContractError("A new farm needs a crop.")
+    else:
+        _id(spec["farmId"])
+        if "fences" in spec:
+            raise RoadAuthoringContractError("An existing farm takes addFences, not fences.")
+    _bounded_name(spec, "name")
+    if "crop" in spec and spec["crop"] not in FARM_CROPS:
+        raise RoadAuthoringContractError("crop must be one of " + ", ".join(FARM_CROPS) + ".")
+    if "seed" in spec and (not isinstance(spec["seed"], int) or isinstance(spec["seed"], bool) or
+                           not 0 <= spec["seed"] <= 2**31 - 1):
+        raise RoadAuthoringContractError("seed must be an integer 0–2147483647.")
+    _bool_fields(spec, ("delete",))
+    if spec.get("delete") is True and set(spec) - {"farmId", "delete"}:
+        raise RoadAuthoringContractError("delete cannot be combined with other changes.")
+    if "rules" in spec:
+        rules = spec["rules"]
+        if not isinstance(rules, dict):
+            raise RoadAuthoringContractError("rules must be an object.")
+        _known_fields(rules, set(), set(_FARM_RULE_RANGES) | set(_FARM_RULE_FLAGS))
+        for key, (low, high) in _FARM_RULE_RANGES.items():
+            if key in rules:
+                _number(rules[key], maximum=high)
+                if rules[key] < low:
+                    raise RoadAuthoringContractError(f"rules.{key} must be {low}–{high}.")
+        _bool_fields(rules, _FARM_RULE_FLAGS)
+        if "minPlotHectares" in rules and "maxPlotHectares" in rules and rules["maxPlotHectares"] < rules["minPlotHectares"]:
+            raise RoadAuthoringContractError("rules.maxPlotHectares is below minPlotHectares.")
+    for key in ("fences", "addFences"):
+        if key in spec:
+            fences = spec[key]
+            if not isinstance(fences, list) or len(fences) > MAX_FARM_FENCES or key == "addFences" and not fences:
+                raise RoadAuthoringContractError(f"{key} must list up to 32 fences (addFences at least one).")
+            for fence in fences:
+                _farm_fence(fence)
+    if "removeFences" in spec:
+        _ids(spec["removeFences"])
+
+
 def _inspection_payload(action: str, payload: dict[str, Any]) -> None:
     if action in {"status", "selection", "goal_status", "receipt"}:
         _known_fields(payload, set(), set())
@@ -777,8 +853,8 @@ def _inspection_payload(action: str, payload: dict[str, Any]) -> None:
             raise RoadAuthoringContractError("Candidate lanes must contain at most 32 entries.")
     elif action == "drawn_areas":
         _known_fields(payload, set(), {"kind", "center", "radiusMeters", "limit"})
-        if "kind" in payload and payload["kind"] not in ("parking_draw", "plaza", "both"):
-            raise RoadAuthoringContractError("drawn_areas kind must be parking_draw, plaza or both.")
+        if "kind" in payload and payload["kind"] not in ("parking_draw", "plaza", "farm_field", "both"):
+            raise RoadAuthoringContractError("drawn_areas kind must be parking_draw, plaza, farm_field or both.")
         if "center" in payload:
             _point(payload["center"])
         if "radiusMeters" in payload:

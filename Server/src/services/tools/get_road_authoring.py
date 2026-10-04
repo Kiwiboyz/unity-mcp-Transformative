@@ -16,8 +16,9 @@ from transport.unity_transport import send_with_unity_instance
     group="road_authoring",
     description=("Inspect the opt-in Project Storm RoadBuilder catalog, network, selection, spatial anchors, validation, goal "
                  "receipts and limits. Exact IDs and hashes are required for authoring. drawn_areas (scene_guid; payload "
-                 "{kind?: parking_draw|plaza|both, center?, radiusMeters?, limit?}) lists the car parks and plazas drawn with "
-                 "the Road Builder's draw tools: outlines, sides, bays, entrances, suggested entrances, areas and surfaces."),
+                 "{kind?: parking_draw|plaza|farm_field|both, center?, radiusMeters?, limit?}) lists the car parks, plazas and "
+                 "farms drawn with the Road Builder's draw tools: outlines, sides, bays, entrances, suggested entrances, areas, "
+                 "surfaces, and each farm's crop, plots, tracks, gates, fences and rules."),
     annotations=ToolAnnotations(title="Get Road Authoring", readOnlyHint=True, destructiveHint=False),
 )
 async def get_road_authoring(

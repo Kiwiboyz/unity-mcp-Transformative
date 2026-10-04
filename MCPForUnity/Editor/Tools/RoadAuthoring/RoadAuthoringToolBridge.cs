@@ -27,10 +27,11 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
         private static readonly string[] GoalIntents =
         {
             "asset", "profile", "road_path", "reprofile", "decoration", "parking_lot",
-            "adopt", "bake", "repair_helpers", "parking_draw", "plaza"
+            "adopt", "bake", "repair_helpers", "parking_draw", "plaza", "farm_field"
         };
         // Areas drawn with the Road Builder's draw tools: scene objects needing no adopted scene or manifest.
-        private static readonly string[] DrawnAreaIntents = { "parking_draw", "plaza" };
+        private static readonly string[] DrawnAreaIntents = { "parking_draw", "plaza", "farm_field" };
+        private static readonly string[] FarmCrops = { "CornGreen", "CornDry", "WheatGreen", "WheatGolden", "WheatStubble" };
         private static readonly string[] RequestFields =
         {
             "schemaVersion", "operationId", "sceneGuid", "action", "expectedManifestHash",
@@ -318,8 +319,8 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
             {
                 if (payload["kind"] != null &&
                     (payload["kind"].Type != JTokenType.String ||
-                     !new[] { "parking_draw", "plaza", "both" }.Contains((string)payload["kind"], StringComparer.Ordinal)))
-                    return "drawn_areas kind must be parking_draw, plaza or both.";
+                     !new[] { "parking_draw", "plaza", "farm_field", "both" }.Contains((string)payload["kind"], StringComparer.Ordinal)))
+                    return "drawn_areas kind must be parking_draw, plaza, farm_field or both.";
                 if (payload["center"] != null && !Point(payload["center"]))
                     return "drawn_areas center must be a finite point.";
                 if (payload["radiusMeters"] != null &&
@@ -531,6 +532,8 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
             }
             else if (intent == "parking_draw" || intent == "plaza")
                 return ValidateDrawnAreaSpec(intent, spec);
+            else if (intent == "farm_field")
+                return ValidateFarmSpec(spec);
             // Asset, profile, adoption and parking semantics are validated by the
             // project bridge after the portable wire shape has been checked here.
             return null;
@@ -612,6 +615,74 @@ namespace MCPForUnity.Editor.Tools.RoadAuthoring
                     return "removeAreas must list exact area IDs.";
             }
             return null;
+        }
+
+        // Wire shape of the farm_field goal (matches the server contract); the project bridge checks meaning
+        // (farm and fence IDs, the layout) against the scene.
+        private static string ValidateFarmSpec(JObject spec)
+        {
+            if (!FieldsMatch(spec, Array.Empty<string>(), new[] { "outline", "farmId", "name", "crop", "seed", "rules", "fences",
+                                                                   "addFences", "removeFences", "delete" }))
+                return "farm_field spec has unknown fields.";
+            if ((spec["outline"] == null) == (spec["farmId"] == null))
+                return "farm_field requires exactly one of outline (new) or farmId (existing).";
+            if (spec["outline"] != null)
+            {
+                if (!Outline(spec["outline"]))
+                    return "outline requires 3–64 vertices or a rectangle {center, size:{x,z}, rotationDeg?}.";
+                if (spec["addFences"] != null || spec["removeFences"] != null || spec["delete"] != null)
+                    return "addFences, removeFences and delete need farmId (a new farm takes fences).";
+                if (spec["crop"] == null) return "A new farm needs a crop.";
+            }
+            else
+            {
+                if (!BoundedId(spec["farmId"])) return "farmId must be a bounded exact ID.";
+                if (spec["fences"] != null) return "An existing farm takes addFences, not fences.";
+            }
+            if (spec["name"] != null && !BoundedText(spec["name"], 128)) return "name must be a bounded nonempty string.";
+            if (spec["crop"] != null && !(spec["crop"].Type == JTokenType.String && FarmCrops.Contains((string)spec["crop"], StringComparer.Ordinal)))
+                return "crop must be one of " + string.Join(", ", FarmCrops) + ".";
+            if (spec["seed"] != null && !IntegerRange(spec["seed"], 0, int.MaxValue)) return "seed must be an integer 0–2147483647.";
+            if (spec["delete"] != null && spec["delete"].Type != JTokenType.Boolean) return "delete must be boolean.";
+            if (spec["delete"] != null && (bool)spec["delete"] &&
+                spec.Properties().Any(property => property.Name != "farmId" && property.Name != "delete"))
+                return "delete cannot be combined with other changes.";
+            if (spec["rules"] != null)
+            {
+                if (spec["rules"] is not JObject rules ||
+                    !FieldsMatch(rules, Array.Empty<string>(), new[] { "minPlotHectares", "maxPlotHectares", "headland",
+                        "headlandFromHectares", "headlandWidth", "trackWidth", "tramlines", "paintTerrain" }) ||
+                    rules["minPlotHectares"] != null && !NumberRange(rules["minPlotHectares"], 0.25, 200) ||
+                    rules["maxPlotHectares"] != null && !NumberRange(rules["maxPlotHectares"], 0.5, 500) ||
+                    rules["headlandFromHectares"] != null && !NumberRange(rules["headlandFromHectares"], 0, 10000) ||
+                    rules["headlandWidth"] != null && !NumberRange(rules["headlandWidth"], 2, 20) ||
+                    rules["trackWidth"] != null && !NumberRange(rules["trackWidth"], 2, 12) ||
+                    new[] { "headland", "tramlines", "paintTerrain" }.Any(name => rules[name] != null && rules[name].Type != JTokenType.Boolean))
+                    return "farm_field rules are out of range or unknown.";
+                if (rules["minPlotHectares"] != null && rules["maxPlotHectares"] != null &&
+                    rules["maxPlotHectares"].Value<double>() < rules["minPlotHectares"].Value<double>())
+                    return "rules.maxPlotHectares is below minPlotHectares.";
+            }
+            foreach (string name in new[] { "fences", "addFences" })
+                if (spec[name] != null &&
+                    (spec[name] is not JArray fences || fences.Count > 32 || name == "addFences" && fences.Count == 0 ||
+                     fences.Any(fence => !FarmFence(fence))))
+                    return name + " must list up to 32 fences {aroundFarm: true} or {points, closed?} (addFences at least one).";
+            if (spec["removeFences"] != null && !IdList(spec["removeFences"]))
+                return "removeFences must list exact fence IDs.";
+            return null;
+        }
+
+        private static bool FarmFence(JToken token)
+        {
+            if (token is not JObject fence) return false;
+            if (fence["aroundFarm"] != null)
+                return FieldsMatch(fence, new[] { "aroundFarm" }, Array.Empty<string>()) &&
+                       fence["aroundFarm"].Type == JTokenType.Boolean && (bool)fence["aroundFarm"];
+            if (!FieldsMatch(fence, new[] { "points" }, new[] { "closed" }) ||
+                fence["closed"] != null && fence["closed"].Type != JTokenType.Boolean) return false;
+            bool closed = fence["closed"] != null && (bool)fence["closed"];
+            return fence["points"] is JArray points && points.Count >= (closed ? 3 : 2) && points.Count <= 64 && points.All(Point);
         }
 
         private static bool Outline(JToken token)

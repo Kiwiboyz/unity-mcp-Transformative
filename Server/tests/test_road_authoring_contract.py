@@ -320,6 +320,22 @@ def test_drawn_area_goals_need_scene_but_no_manifest():
                    "points": [{"x": 5, "y": 0, "z": 0}, {"x": 5, "y": 0, "z": 15}]}],
     }}
     build_request(action="preview_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE, payload=plaza)
+    farm = {"intent": "farm_field", "spec": {
+        "outline": {"rectangle": {"center": {"x": 0, "y": 0, "z": 0}, "size": {"x": 300, "z": 200}, "rotationDeg": 10}},
+        "crop": "WheatGolden", "seed": 7, "name": "North farm",
+        "rules": {"maxPlotHectares": 6, "headland": False, "trackWidth": 5, "paintTerrain": True},
+        "fences": [{"aroundFarm": True}, {"points": [{"x": -50, "y": 0, "z": 0}, {"x": 50, "y": 0, "z": 0}]}],
+    }}
+    with pytest.raises(RoadAuthoringContractError, match="scene_guid"):
+        build_request(action="stage_goal", mutation=True, operation_id=OPERATION, payload=farm)
+    request = build_request(action="stage_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE, payload=farm)
+    assert request["expectedManifestHash"] is None
+    change = {"intent": "farm_field", "spec": {"farmId": "f1", "crop": "CornDry", "addFences": [
+        {"points": [{"x": 0, "y": 0, "z": 0}, {"x": 10, "y": 0, "z": 0}, {"x": 10, "y": 0, "z": 10}], "closed": True}],
+        "removeFences": ["fence1"]}}
+    build_request(action="preview_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE, payload=change)
+    build_request(action="preview_goal", mutation=True, operation_id=OPERATION, scene_guid=SCENE,
+                  payload={"intent": "farm_field", "spec": {"farmId": "f1", "delete": True}})
 
 
 @pytest.mark.parametrize("intent,spec", [
@@ -351,6 +367,22 @@ def test_drawn_area_goals_need_scene_but_no_manifest():
                                               "points": [{"x": 0, "y": 0, "z": 0}] * 2}]}),
     ("plaza", {"plazaId": "p1", "delete": True, "surface": "Tiles"}),
     ("plaza", {"plazaId": "p1", "unknown": 1}),
+    # Farms: one crop from a fixed list, typed rules and fences; a new farm takes fences, an existing one addFences.
+    ("farm_field", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}}),
+    ("farm_field", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}, "crop": "Barley"}),
+    ("farm_field", {"farmId": "f1", "outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}}),
+    ("farm_field", {"farmId": "f1", "rules": {"plotSize": 3}}),
+    ("farm_field", {"farmId": "f1", "rules": {"maxPlotHectares": 0.1}}),
+    ("farm_field", {"farmId": "f1", "rules": {"minPlotHectares": 5, "maxPlotHectares": 2}}),
+    ("farm_field", {"farmId": "f1", "rules": {"headland": "yes"}}),
+    ("farm_field", {"farmId": "f1", "seed": -1}),
+    ("farm_field", {"farmId": "f1", "fences": [{"aroundFarm": True}]}),
+    ("farm_field", {"farmId": "f1", "addFences": []}),
+    ("farm_field", {"farmId": "f1", "addFences": [{"points": [{"x": 0, "y": 0, "z": 0}]}]}),
+    ("farm_field", {"farmId": "f1", "addFences": [{"points": [{"x": 0, "y": 0, "z": 0}] * 2, "closed": True}]}),
+    ("farm_field", {"farmId": "f1", "addFences": [{"aroundFarm": True, "closed": True}]}),
+    ("farm_field", {"outline": {"vertices": [{"x": 0, "y": 0, "z": 0}] * 3}, "crop": "CornGreen", "removeFences": ["a"]}),
+    ("farm_field", {"farmId": "f1", "delete": True, "crop": "CornGreen"}),
 ])
 def test_drawn_area_specs_are_exact(intent, spec):
     with pytest.raises(RoadAuthoringContractError):
@@ -362,6 +394,7 @@ def test_drawn_areas_inspection_is_scene_scoped_and_bounded():
     request = build_request(action="drawn_areas", mutation=False, scene_guid=SCENE,
                             payload={"kind": "plaza", "center": {"x": 0, "y": 0, "z": 0}, "radiusMeters": 50, "limit": 10})
     assert request["action"] == "drawn_areas"
+    build_request(action="drawn_areas", mutation=False, scene_guid=SCENE, payload={"kind": "farm_field"})
     with pytest.raises(RoadAuthoringContractError, match="scene_guid"):
         build_request(action="drawn_areas", mutation=False, payload={})
     for payload in ({"kind": "roads"}, {"radiusMeters": 5}, {"limit": 101}, {"extra": True}):
