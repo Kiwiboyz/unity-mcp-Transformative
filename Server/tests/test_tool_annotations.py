@@ -41,6 +41,7 @@ READ_ONLY = {
     "get_road_authoring",
     "get_sha",
     "get_test_job",
+    "get_work_area",
     "manage_script_capabilities",
     "unity_docs",
     "unity_reflect",
