@@ -37,6 +37,8 @@ READ_ONLY = {
     "get_storm_wind_catalog",
     "find_in_file",
     "get_equipment_catalog",
+    # Story/Recipe/Mission Designer reads only: schema, list, read, validate, bindings, references, live status.
+    "get_gameplay_authoring",
     "get_modern_ui_catalog",
     "get_road_authoring",
     "get_sha",
