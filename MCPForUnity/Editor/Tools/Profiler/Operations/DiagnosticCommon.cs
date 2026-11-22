@@ -57,7 +57,7 @@ namespace MCPForUnity.Editor.Tools.Profiler
         internal static string Hierarchy(Transform t) => t.parent ? Hierarchy(t.parent) + "/" + t.name : t.name;
         internal static JObject Identity(UnityEngine.Object obj) => obj == null ? null : new JObject {
             ["name"] = obj.name, ["type"] = obj.GetType().FullName,
-            ["path"] = AssetDatabase.GetAssetPath(obj), ["instance_id"] = obj.GetInstanceID()
+            ["path"] = AssetDatabase.GetAssetPath(obj), ["instance_id"] = MCPForUnity.Runtime.Helpers.UnityObjectIdCompat.GetInstanceIDCompat(obj)
         };
     }
 }

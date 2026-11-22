@@ -24,7 +24,7 @@ namespace MCPForUnity.Editor.Tools.Profiler
         {
             if (token is JObject o && o.Count == 1 && o["instanceID"] != null)
             {
-                var obj = EditorUtility.InstanceIDToObject((int)o["instanceID"]);
+                var obj = MCPForUnity.Runtime.Helpers.UnityObjectIdCompat.InstanceIDToObjectCompat((int)o["instanceID"]);
                 if (!obj) return JValue.CreateNull();
                 var identity = DiagnosticCommon.Identity(obj); identity.Remove("instance_id");
                 if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(obj, out string guid, out long localId))
@@ -185,7 +185,7 @@ namespace MCPForUnity.Editor.Tools.Profiler
                     ["submesh_slots_all_lods"] = meshes.Sum(m => m.subMeshCount), ["shadow_capable_renderers_all_lods"] = family.Count(r => r.shadowCastingMode != ShadowCastingMode.Off),
                     ["actual_shadow_submissions"] = DiagnosticCommon.Unavailable("Requires a selected captured frame; configuration counts are not submissions."),
                     ["texture_references"] = new JArray(textures.Select(t => DiagnosticCommon.Identity(t))), ["lod_groups"] = lodRows,
-                    ["instancing_candidates"] = new JArray(family.Where(r => !(r is SkinnedMeshRenderer)).GroupBy(r => string.Join("|", r.sharedMaterials.Select(m => m ? m.GetInstanceID().ToString() : "null")) + "/" + (r.GetComponent<MeshFilter>()?.sharedMesh?.GetInstanceID().ToString() ?? "none")).Where(g => g.Count() > 1).Select(g => new JObject { ["count"] = g.Count(), ["material_instancing_enabled"] = g.First().sharedMaterials.All(m => m && m.enableInstancing), ["note"] = "Candidate only: verify shader, lightmap, property blocks, motion and SRP batching in the target build." })) });
+                    ["instancing_candidates"] = new JArray(family.Where(r => !(r is SkinnedMeshRenderer)).GroupBy(r => string.Join("|", r.sharedMaterials.Select(m => m ? MCPForUnity.Runtime.Helpers.UnityObjectIdCompat.GetInstanceIDCompat(m).ToString() : "null")) + "/" + ((r.GetComponent<MeshFilter>()?.sharedMesh is Mesh sm && sm ? MCPForUnity.Runtime.Helpers.UnityObjectIdCompat.GetInstanceIDCompat(sm).ToString() : "none"))).Where(g => g.Count() > 1).Select(g => new JObject { ["count"] = g.Count(), ["material_instancing_enabled"] = g.First().sharedMaterials.All(m => m && m.enableInstancing), ["note"] = "Candidate only: verify shader, lightmap, property blocks, motion and SRP batching in the target build." })) });
             }
             return new JObject { ["family_count"] = rows.Count, ["families"] = DiagnosticCommon.Page(rows.OrderByDescending(r => (int)r["submesh_slots_all_lods"]), p),
                 ["basis"] = "Loaded scene renderers, all LODs; ranked potential cost, not measured draws." };
