@@ -6,7 +6,7 @@ namespace MCPForUnity.Editor.Tools.Gameplay
 {
     /// <summary>
     /// Portable adapter for Project Storm gameplay authoring (Storm Story graphs, Recipes, Mission Designer preview and
-    /// simulation). It calls the project's fixed, versioned MissionDesignerBridge by reflection, so this package needs no
+    /// simulation, and the fire burnable index). It calls the project's fixed, versioned MissionDesignerBridge by reflection, so this package needs no
     /// compile reference to game code, and every request runs the same authoring services as the Mission Designer window.
     /// Only allow-listed semantic operations pass; the read tool can never reach a mutation.
     /// </summary>
@@ -19,21 +19,24 @@ namespace MCPForUnity.Editor.Tools.Gameplay
         private static readonly string[] RecipeMutations = { "create", "duplicate", "save", "publish", "create-catalog" };
         private static readonly string[] DesignerReads = { "visual.query", "preview.bindings", "recipe.summary", "simulation.status", "story.live" };
         private static readonly string[] DesignerMutations = { "visual.set", "visual.focus", "simulation.configure", "simulation.start", "simulation.stop", "simulation.restart", "simulation.pause", "simulation.step", "story.open", "story.test" };
+        private static readonly string[] FireReads = { "schema", "classify", "validate", "inspect", "status" };
+        private static readonly string[] FireMutations = { "bake", "ignite" };
 
-        /// <summary>The operation a request carries: "op" for story and recipe, "action" for mission_designer.</summary>
+        /// <summary>The operation a request carries: "op" for story, recipe and fire, "action" for mission_designer.</summary>
         public static string Operation(string domain, JObject request) => domain == "mission_designer" ? (string)request?["action"] ?? "" : (string)request?["op"] ?? "";
         public static bool Allowed(string domain, bool mutation, string operation)
         {
             string[] list = domain == "story" ? (mutation ? StoryMutations : StoryReads)
                 : domain == "recipe" ? (mutation ? RecipeMutations : RecipeReads)
-                : domain == "mission_designer" ? (mutation ? DesignerMutations : DesignerReads) : null;
+                : domain == "mission_designer" ? (mutation ? DesignerMutations : DesignerReads)
+                : domain == "fire" ? (mutation ? FireMutations : FireReads) : null;
             return list != null && Array.IndexOf(list, operation ?? "") >= 0;
         }
 
         public static object Invoke(bool mutation, JObject parameters)
         {
             string domain = (string)parameters?["domain"] ?? "";
-            if (domain != "story" && domain != "recipe" && domain != "mission_designer") return new ErrorResponse("Unknown gameplay authoring domain. Use story, recipe or mission_designer.");
+            if (domain != "story" && domain != "recipe" && domain != "mission_designer" && domain != "fire") return new ErrorResponse("Unknown gameplay authoring domain. Use story, recipe, mission_designer or fire.");
             var request = parameters?["request"] as JObject ?? new JObject();
             string operation = Operation(domain, request);
             if (!Allowed(domain, mutation, operation))

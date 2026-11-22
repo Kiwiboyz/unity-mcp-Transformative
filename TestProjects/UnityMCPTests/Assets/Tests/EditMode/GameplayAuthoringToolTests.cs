@@ -17,6 +17,11 @@ namespace MCPForUnityTests.Editor
             Assert.That(GameplayAuthoringToolBridge.Allowed("story", true, "validate"), Is.False);
             Assert.That(GameplayAuthoringToolBridge.Allowed("mission_designer", true, "story.test"), Is.True);
             Assert.That(GameplayAuthoringToolBridge.Allowed("mission_designer", false, "story.test"), Is.False);
+            Assert.That(GameplayAuthoringToolBridge.Allowed("fire", false, "classify"), Is.True);
+            Assert.That(GameplayAuthoringToolBridge.Allowed("fire", true, "classify"), Is.False);
+            Assert.That(GameplayAuthoringToolBridge.Allowed("fire", true, "bake"), Is.True);
+            Assert.That(GameplayAuthoringToolBridge.Allowed("fire", false, "bake"), Is.False);
+            Assert.That(GameplayAuthoringToolBridge.Allowed("fire", true, "execute_code"), Is.False);
         }
         [Test] public void MissingProjectBridgeFailsClosed()
         {

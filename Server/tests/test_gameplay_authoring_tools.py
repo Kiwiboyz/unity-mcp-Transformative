@@ -40,7 +40,7 @@ def test_read_tool_refuses_every_mutation_without_transport(monkeypatch):
 
     monkeypatch.setattr(get_mod, "send_with_unity_instance", fail_send)
     for domain, request in (("story", {"op": "edit"}), ("story", {"op": "publish"}), ("recipe", {"op": "save"}),
-                            ("mission_designer", {"action": "story.test"})):
+                            ("mission_designer", {"action": "story.test"}), ("fire", {"op": "bake"}), ("fire", {"op": "ignite"})):
         response = run_async(get_mod.get_gameplay_authoring(SimpleNamespace(), domain, request))
         assert response["success"] is False and "manage_gameplay_authoring" in response["message"]
 
@@ -87,6 +87,30 @@ def test_simulation_controls_need_no_operation_id(monkeypatch):
         SimpleNamespace(), "mission_designer", {"action": "story.test", "assetPath": "Assets/S.asset", "startPhase": 2}))
     assert response == {"success": True}
     assert sent["params"]["request"]["startPhase"] == 2
+
+
+def test_fire_domain_reads_and_changes_are_separated(monkeypatch):
+    sent = []
+
+    async def fake_send(_send, instance, command, params):
+        sent.append((command, params))
+        return {"success": True, "data": {}}
+
+    async def fake_mutation(ctx, instance, command, params):
+        sent.append((command, params))
+        return {"success": True}
+
+    monkeypatch.setattr(get_mod, "send_with_unity_instance", fake_send)
+    monkeypatch.setattr(get_mod, "get_unity_instance_from_context", AsyncMock(return_value=None))
+    monkeypatch.setattr(manage_mod, "send_mutation", fake_mutation)
+    monkeypatch.setattr(manage_mod, "get_unity_instance_from_context", AsyncMock(return_value=None))
+    for op in ("schema", "classify", "validate", "inspect", "status"):
+        assert run_async(get_mod.get_gameplay_authoring(SimpleNamespace(), "fire", {"op": op}))["success"] is True
+    assert run_async(manage_mod.manage_gameplay_authoring(SimpleNamespace(), "fire", {"op": "classify", "operationId": "x"}))["success"] is False
+    missing = run_async(manage_mod.manage_gameplay_authoring(SimpleNamespace(), "fire", {"op": "bake"}))
+    assert missing["success"] is False and "operationId" in missing["message"]
+    assert run_async(manage_mod.manage_gameplay_authoring(SimpleNamespace(), "fire", {"op": "bake", "operationId": "b1"}))["success"] is True
+    assert sent[-1] == ("manage_gameplay_authoring", {"domain": "fire", "request": {"op": "bake", "operationId": "b1"}})
 
 
 def test_transport_failure_is_reported(monkeypatch):

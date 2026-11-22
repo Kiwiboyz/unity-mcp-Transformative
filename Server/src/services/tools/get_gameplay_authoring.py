@@ -1,4 +1,4 @@
-"""Read-only Project Storm gameplay authoring (Storm Stories, Recipes, Mission Designer); paired Unity bridge."""
+"""Read-only Project Storm gameplay authoring (Storm Stories, Recipes, Mission Designer, fire); paired Unity bridge."""
 from typing import Annotated, Any, Literal
 from fastmcp import Context
 from mcp.types import ToolAnnotations
@@ -7,11 +7,12 @@ from services.tools import get_unity_instance_from_context
 from transport.legacy.unity_connection import async_send_command_with_retry
 from transport.unity_transport import send_with_unity_instance
 
-DOMAINS = ("story", "recipe", "mission_designer")
+DOMAINS = ("story", "recipe", "mission_designer", "fire")
 READS = {
     "story": ("schema", "list", "read", "validate", "bindings", "references"),
     "recipe": ("schema", "read", "validate"),
     "mission_designer": ("visual.query", "preview.bindings", "recipe.summary", "simulation.status", "story.live"),
+    "fire": ("schema", "classify", "validate", "inspect", "status"),
 }
 
 
@@ -24,13 +25,15 @@ def operation(domain: str, request: dict[str, Any]) -> str:
     description=("Inspect Project Storm gameplay content through the same services as the Mission Designer window. "
                  "story: schema (node catalogue, conditions, outcomes, edit operations), list, read, validate, bindings, references. "
                  "recipe: schema, read, validate. mission_designer: visual.query, preview.bindings, recipe.summary, simulation.status, story.live. "
+                 "fire: schema (fuel classes), classify (dry-run of the open scene's burnables, with items to review), validate (the baked index), "
+                 "inspect (index summary; 'near': {x, z, radius} lists entries), status (live fire in Play). "
                  "No mutations; use manage_gameplay_authoring for changes."),
     annotations=ToolAnnotations(title="Get Gameplay Authoring", readOnlyHint=True, destructiveHint=False),
 )
 async def get_gameplay_authoring(
     ctx: Context,
-    domain: Annotated[Literal["story", "recipe", "mission_designer"], "Authoring domain."],
-    request: Annotated[dict[str, Any], "Domain request: {'op': ...} for story/recipe, {'action': ...} for mission_designer, plus that operation's fields (for example assetPath)."],
+    domain: Annotated[Literal["story", "recipe", "mission_designer", "fire"], "Authoring domain."],
+    request: Annotated[dict[str, Any], "Domain request: {'op': ...} for story/recipe/fire, {'action': ...} for mission_designer, plus that operation's fields (for example assetPath)."],
 ) -> dict[str, Any]:
     if domain not in DOMAINS:
         return {"success": False, "message": "Unknown gameplay authoring domain."}
